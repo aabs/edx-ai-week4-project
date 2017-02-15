@@ -5,13 +5,13 @@ import collections
 
 from BaseAI_3 import BaseAI
 
-space_weight = 1.5
+space_weight = 1.0
 score_weight = 1.0
 compactability_weight = 1.0
-monotonicity_weight = 2.0
+monotonicity_weight = 1.0
 smoothness_weight = 1.0
 deadline_offset = 0.1
-max_depth = 20
+max_depth = 40
 plus_infinity = float(sys.maxsize)
 minus_infinity = -1.0 * plus_infinity
 
