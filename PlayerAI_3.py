@@ -5,13 +5,13 @@ import collections
 
 from BaseAI_3 import BaseAI
 
-space_weight = 30
+space_weight = 200
 score_weight = 0.0
 compactability_weight = 0.0
-monotonicity_weight = 50
-smoothness_weight = 20
+monotonicity_weight = 80
+smoothness_weight = 2.0
 deadline_offset = 0.1
-max_depth = 30
+max_depth = 20
 plus_infinity = float(sys.maxsize)
 minus_infinity = -1.0 * plus_infinity
 
@@ -43,6 +43,9 @@ class PlayerAI(BaseAI):
     def getMove(self, grid):
         self.deadline = time.process_time() + deadline_offset
         moves = grid.getAvailableMoves()
+        # always reject up(??)
+        if moves.count(0) > 0: # 0 is the value used for DOWN in grid
+            moves.remove(0)
         child_grids = [(self.gen_grid(move, grid), move) for move in moves]
         # create a list of tuple(score, grid, move)
         assessed_children = sorted(
@@ -168,34 +171,29 @@ class PlayerAI(BaseAI):
         for x in range(1, len(vec)):
             v1 = math.log(vec[x - 1]) / math.log(2) if vec[x - 1] > 0 else 0
             v2 = math.log(vec[x]) / math.log(2) if vec[x] > 0 else 0
-            if v1 < v2:
-                acc += (v1 - v2)
-            elif v2 < v1:
-                acc += (v2 - v1)
+            acc += (v2 - v1)
         return acc
 
     def calculate_smoothness(self, grid):
-        result = 1.0
+        result = 0.0
 
         for row in range(0, grid.size - 1):
-            cur_cell = -1
             for col in range(0, grid.size - 1):
-                cell_value = grid.getCellValue((row, col))
-                if cell_value == 0:  # skip the zeros, since this is a kinda of test of mergeability
+                c1 = grid.getCellValue((row, col))
+                c2 = grid.getCellValue((row, col+1))
+                if c1 == 0:  # skip the zeros, since this is a kinda of test of mergeability
                     pass
-                elif cell_value == cur_cell:
+                elif c1 == c2:
                     result += 1.0
-                cur_cell = cell_value
 
         for cell in range(0, grid.size - 1):
-            cur_cell = -1
             for row in range(0, grid.size - 1):
-                cell_value = grid.getCellValue((row, col))
-                if cell_value == 0:
+                c1 = grid.getCellValue((row, col))
+                c2 = grid.getCellValue((row+1, col))
+                if c1 == 0:
                     pass
-                elif cell_value == cur_cell:
+                elif c1 == c2:
                     result += 1.0
-                cur_cell = cell_value
 
-        max_possible_score = pow(grid.size - 1, 2)
+        max_possible_score = pow(grid.size-1, 2)*2
         return result / float(max_possible_score)

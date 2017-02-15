@@ -1,9 +1,9 @@
 NAME=am-2048
 INST_NAME=2048
-CC=pypy3
+CC=python3
 all: run
 run:
-	$(CC) GameManager_3.py
+	PYTHONUNBUFFERED=1 $(CC) GameManager_3.py
 dbuild:
 	docker build -t $(NAME) .
 drun:  build
