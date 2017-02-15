@@ -5,11 +5,11 @@ import collections
 
 from BaseAI_3 import BaseAI
 
-space_weight = 200
-score_weight = 0.0
-compactability_weight = 0.0
-monotonicity_weight = 80
-smoothness_weight = 2.0
+space_weight = 1.5
+score_weight = 1.0
+compactability_weight = 1.0
+monotonicity_weight = 2.0
+smoothness_weight = 1.0
 deadline_offset = 0.1
 max_depth = 20
 plus_infinity = float(sys.maxsize)
@@ -42,10 +42,7 @@ class PlayerAI(BaseAI):
 
     def getMove(self, grid):
         self.deadline = time.process_time() + deadline_offset
-        moves = grid.getAvailableMoves()
-        # always reject up(??)
-        if moves.count(0) > 0: # 0 is the value used for DOWN in grid
-            moves.remove(0)
+        moves = self.getMaximizerMoves(grid)
         child_grids = [(self.gen_grid(move, grid), move) for move in moves]
         # create a list of tuple(score, grid, move)
         assessed_children = sorted(
@@ -117,7 +114,14 @@ class PlayerAI(BaseAI):
         return Utility(space_score, max_val_score, monotonicity_score, smoothness_score, division_factor)
 
     def getMaximizerMoves(self, grid):
-        return grid.getAvailableMoves()
+        moves = grid.getAvailableMoves()
+        # always reject up(??) unless it is the only option to move
+        if len(moves) == 1:
+            return moves
+        if moves.count(0) > 0: # 0 is the value used for DOWN in grid
+            moves.remove(0)
+        return moves
+
 
     def getMinimizerMoves(self, grid):
         cells = grid.getAvailableCells()
