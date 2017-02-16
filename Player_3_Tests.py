@@ -1,11 +1,15 @@
 import unittest
 
+import time
+
 from BaseDisplayer_3 import BaseDisplayer
 from ComputerAI_3 import ComputerAI
 from GameManager_3 import GameManager
 from Grid_3 import Grid
 from PlayerAI_3 import PlayerAI
 import cma
+import collections
+import sys
 
 
 class Player3Tests(unittest.TestCase):
@@ -118,14 +122,26 @@ class GameplayTests(unittest.TestCase):
         print("moves: ", len(sut.playerAI.transcript))
 
     def test_optimise_player_weights(self):
-        es = cma.CMAEvolutionStrategy(5 * [1.0], 0.5)
-        while not es.stop():
-            solutions = es.ask()
-            es.tell(solutions, [self.run_solution(x) for x in solutions])
-        es.result_pretty()
+        options = {'CMA_diagonal': 100, 'seed': 1234, 'verb_time': 0}
+        res = cma.fmin(self.run_solution, [1.0] * 5, 1.0, options)
+        print(res)
+        # es = cma.CMAEvolutionStrategy(5 * [1.0], 0.5)
+        # while not es.stop():
+        #     solutions = es.ask()
+        #     # results = [65564 - self.run_solution(x) for x in solutions]
+        #     # sys.stdout = sys.__stdout__
+        #     # print("results: ", results)
+        #     # es.tell(solutions, results)
+        # es.result_pretty()
 
     def run_solution(self, solution: list) -> int:
         sut = GameBuilder().build()
         sut.playerAI.set_weights(solution[0], solution[1], solution[2], solution[3], solution[4])
         sut.start()
-        return sut.grid.getMaxTile()
+        return 60000 - sut.grid.getMaxTile()
+
+
+class CaptureOutput:
+    def write(self, message):
+        pass
+

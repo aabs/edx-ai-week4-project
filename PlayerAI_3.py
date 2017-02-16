@@ -1,13 +1,12 @@
 import sys
 import time
 import math
-import collections
 
 from BaseAI_3 import BaseAI
 from Grid_3 import Grid
 
-deadline_offset = 0.08
-max_depth = 6
+deadline_offset = 0.09
+max_depth = 50
 plus_infinity = float(sys.maxsize)
 minus_infinity = -1.0 * plus_infinity
 
@@ -19,7 +18,7 @@ class AlgorithmWeights:
     def __init__(self, space_weight=2.0
                  , score_weight=1.0
                  , compactability_weight=1.0
-                 , monotonicity_weight=1.0
+                 , monotonicity_weight=2.0
                  , smoothness_weight=1.0):
         self.smoothness_weight = smoothness_weight
         self.monotonicity_weight = monotonicity_weight
@@ -41,7 +40,7 @@ class Utility:
     def cumulative_score(self, offset=10, mon_range=20):
         return (self.space_score * self.weights.space_weight + self.max_val_score * self.weights.score_weight + \
                 (self.monotonicity_score + offset) / mon_range * self.weights.monotonicity_weight + \
-                self.smoothness_score * self.weights.smoothness_weight) / self.division_factor
+                self.smoothness_score * self.weights.smoothness_weight)
 
 
 class AuditPoint:
@@ -59,7 +58,7 @@ class PlayerAI(BaseAI):
     def __init__(self):
         self.deadline = None
         self.max_depth = 0
-        self.transcript = []
+        self.moves = []
 
         # fields used for keeping track of the player AIs behaviour
 
@@ -68,12 +67,7 @@ class PlayerAI(BaseAI):
         self._move_chosen = None
         self._grid_chosen = None
         self._branches_ignored = 0
-        self.weights = None
-        self._space_weight = 2.0
-        self._score_weight = 1.0
-        self._compactability_weight = 1.0
-        self._monotonicity_weight = 1.0
-        self._smoothness_weight = 1.0
+        self.weights = AlgorithmWeights()
 
     def set_weights(self, space_weight=2.0
                     , score_weight=1.0
@@ -86,6 +80,12 @@ class PlayerAI(BaseAI):
                                         , compactability_weight
                                         , monotonicity_weight
                                         , smoothness_weight)
+        print("weights",
+              space_weight
+              , score_weight
+              , compactability_weight
+              , monotonicity_weight
+              , smoothness_weight)
 
     def audit(self, assessed_children):
         self._highest_scoring_move = assessed_children[0][0]
@@ -106,28 +106,34 @@ class PlayerAI(BaseAI):
 
     def getMove(self, grid):
         self.reset_stats()
-        self.deadline = time.process_time() + deadline_offset
+        self.deadline = time.clock() + deadline_offset
         moves = self.getMaximizerMoves(grid)
+        if len(moves) == 1:
+            # no point messing about, just make the move
+            self.moves.append(moves[0])
+            return moves[0]
+
         child_grids = [(self.gen_grid(move, grid), move) for move in moves]
         # create a list of tuple(score, grid, move)
         assessed_children = sorted(
-            [(self.score_grid(child, plus_infinity, minus_infinity, True, len(moves)), child[0], child[1]) for child
+            [(self.score_grid(child, minus_infinity, plus_infinity, True, len(moves)), child[0], child[1]) for child
              in
              child_grids], key=lambda m: m[0], reverse=True)
         chosen_move = assessed_children[0][2]
-        self.audit(assessed_children)
+        self.moves.append(chosen_move)
         return chosen_move
 
     def score_grid(self, gm, alpha, beta, is_maximiser, num_moves, depth=0):
         (grid, move) = gm
-        if time.process_time() > self.deadline or self.terminal_test(grid) or depth >= max_depth:
+
+        if time.clock() >= self.deadline or self.terminal_test(grid) or depth >= max_depth:
             s = self.utility(grid, num_moves, is_maximiser)
             return s.cumulative_score
 
         self.max_depth = max(self.max_depth, depth)
 
         if is_maximiser:
-            result = alpha
+            result = minus_infinity
 
             for move in self.getMaximizerMoves(grid):
                 child_grid = self.gen_grid(move, grid)
@@ -144,7 +150,7 @@ class PlayerAI(BaseAI):
                     break
             return result
         else:
-            result = beta
+            result = plus_infinity
             for move in self.getMinimizerMoves(grid):
                 (child_grid, prob) = move
                 s = self.score_grid((child_grid, move),
@@ -189,10 +195,10 @@ class PlayerAI(BaseAI):
     def getMaximizerMoves(self, grid):
         moves = grid.getAvailableMoves()
         # always reject up(??) unless it is the only option to move
-        if len(moves) == 1:
-            return moves
-        if moves.count(0) > 0:  # 0 is the value used for DOWN in grid
-            moves.remove(0)
+        # if len(moves) == 1:
+        #     return moves
+        # if moves.count(0) > 0:  # 0 is the value used for DOWN in grid
+        #     moves.remove(0)
         return moves
 
     def getMinimizerMoves(self, grid):
