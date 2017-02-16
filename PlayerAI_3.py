@@ -6,7 +6,7 @@ from BaseAI_3 import BaseAI
 from Grid_3 import Grid
 
 deadline_offset = 0.09
-max_depth = 50
+max_depth = 8
 plus_infinity = float(sys.maxsize)
 minus_infinity = -1.0 * plus_infinity
 
@@ -14,12 +14,17 @@ minus_infinity = -1.0 * plus_infinity
 # http://www.wikihow.com/Beat-2048#Step_by_Step_Strategy_Guide_sub
 # http://stackoverflow.com/questions/22342854/what-is-the-optimal-algorithm-for-the-game-2048
 
+class SafeDict(dict):
+    def __missing__(self, key):
+        return None
+
+
 class AlgorithmWeights:
-    def __init__(self, space_weight=2.0
+    def __init__(self, space_weight=3.0
                  , score_weight=1.0
                  , compactability_weight=1.0
-                 , monotonicity_weight=2.0
-                 , smoothness_weight=1.0):
+                 , monotonicity_weight=3.0
+                 , smoothness_weight=2.0):
         self.smoothness_weight = smoothness_weight
         self.monotonicity_weight = monotonicity_weight
         self.compactability_weight = compactability_weight
@@ -68,6 +73,8 @@ class PlayerAI(BaseAI):
         self._grid_chosen = None
         self._branches_ignored = 0
         self.weights = AlgorithmWeights()
+        self.memo_monotonicity_scores = SafeDict([])
+        self.memo_smoothness_scores = SafeDict([])
 
     def set_weights(self, space_weight=2.0
                     , score_weight=1.0
@@ -124,13 +131,13 @@ class PlayerAI(BaseAI):
         return chosen_move
 
     def score_grid(self, gm, alpha, beta, is_maximiser, num_moves, depth=0):
-        (grid, move) = gm
-
-        if time.clock() >= self.deadline or self.terminal_test(grid) or depth >= max_depth:
-            s = self.utility(grid, num_moves, is_maximiser)
-            return s.cumulative_score
+        (grid, originating_move) = gm
 
         self.max_depth = max(self.max_depth, depth)
+
+        if time.clock() >= self.deadline or self.terminal_test(grid) or depth == max_depth:
+            s = self.utility(grid, num_moves, is_maximiser)
+            return s.cumulative_score
 
         if is_maximiser:
             result = minus_infinity
@@ -213,72 +220,92 @@ class PlayerAI(BaseAI):
                 new_grids.append((new_grid, 0.9 if new_value == 2 else 0.1))
         return new_grids
 
-    def calculate_monotonicity(self, grid):
-        result = 0.0
-
-        for row in range(0, grid.size - 1):
-            for col in range(0, grid.size - 1):
-                if grid.getCellValue((row, col)) <= grid.getCellValue((row, col + 1)):
-                    result += 1.0
-        for cols in range(0, grid.size - 1):
-            for rows in range(0, grid.size - 1):
-                if grid.getCellValue((row, col)) <= grid.getCellValue((row + 1, col)):
-                    result += 1.0
-
-        # for x in range(0, grid.size - 1):
-        #     for y in range(0, grid.size - 1):
-        #         xy = grid.getCellValue((x, y))
-        #         x1y = grid.getCellValue((x + 1, y))
-        #         xy1 = grid.getCellValue((x, y + 1))
-        #         result += 1.0 if (xy <= x1y) else 0.0
-        #         result += 1.0 if (xy <= xy1) else 0.0
-
-        # maximum possible score for this would be when every cell scores both upwards as well as across
-        # one row and one col can't be tested since they have no neighbours above or across, so the total
-        # possible tests is (grid.size-1)^2
-        max_possible_score = pow(grid.size, 2)
-        return result / float(max_possible_score)
-
     def calculate_monotonicity2(self, grid):
+        repr_hash = hash(str(grid.map))
+        score = self.memo_monotonicity_scores[repr_hash]
+        if score is not None:
+            return score
         # first get cumulative scores for all rows
         row_scores = sum([self.vector_monotonicity(v) for v in grid.map])
         col_scores = sum([self.vector_monotonicity(self.get_column(grid, col)) for col in range(0, grid.size)])
-        return row_scores + col_scores
+        result = row_scores + col_scores
+        self.set_grid_score(grid, self.memo_monotonicity_scores, result)
+        return result
 
     def get_column(self, grid, col_index):
         return [grid.getCellValue((x, col_index)) for x in range(0, grid.size)]
 
     def vector_monotonicity(self, vec):
+        repr_hash = hash(repr(vec))
+        score = self.memo_monotonicity_scores[repr_hash]
+        if score is not None:
+            return score
         acc = 0.0
         for x in range(1, len(vec)):
             v1 = math.log(vec[x - 1]) / math.log(2) if vec[x - 1] > 0 else 0
             v2 = math.log(vec[x]) / math.log(2) if vec[x] > 0 else 0
             acc += (v2 - v1)
+        self.memo_monotonicity_scores[repr_hash] = acc
         return acc
 
+    def vector_smoothness(self, vec):
+        repr_hash = hash(repr(vec))
+        score = self.memo_smoothness_scores[repr_hash]
+        if score is not None:
+            return score
+        acc = 0.0
+        for x in range(0, len(vec) - 1):
+            v1 = math.log(vec[x]) / math.log(2) if vec[x] > 0 else 0
+            v2 = math.log(vec[x + 1]) / math.log(2) if vec[x + 1] > 0 else 0
+            if v1 == 0 and v2 == 0:
+                break
+            if v1 == v2:
+                acc += 1.0
+            else:
+                acc -= (max(v1, v2) - min(v1, v2))
+        self.memo_smoothness_scores[repr_hash] = acc
+        return acc
+    def get_grid_score(self, grid: Grid, scores: SafeDict) -> float:
+        repr_hash = hash(str(grid.map))
+        return scores[repr_hash]
+
+    def set_grid_score(self, grid: Grid, scores: SafeDict, score: float):
+        repr_hash = hash(str(grid.map))
+        scores[repr_hash] = score
+
     def calculate_smoothness(self, grid):
-        result = 0.0
-
-        for row in range(0, grid.size - 1):
-            for col in range(0, grid.size - 1):
-                c1 = grid.getCellValue((row, col))
-                c2 = grid.getCellValue((row, col + 1))
-                if c1 == 0:  # skip the zeros, since this is a kinda of test of mergeability
-                    pass
-                elif c1 == c2:
-                    result += 1.0
-
-        for cell in range(0, grid.size - 1):
-            for row in range(0, grid.size - 1):
-                c1 = grid.getCellValue((row, col))
-                c2 = grid.getCellValue((row + 1, col))
-                if c1 == 0:
-                    pass
-                elif c1 == c2:
-                    result += 1.0
-
+        score = self.get_grid_score(grid, self.memo_smoothness_scores)
+        if score is not None:
+            return score
+        row_scores = sum([self.vector_smoothness(v) for v in grid.map])
+        col_scores = sum([self.vector_smoothness(self.get_column(grid, col)) for col in range(0, grid.size)])
         max_possible_score = pow(grid.size - 1, 2) * 2
-        return result / float(max_possible_score)
+        result = (row_scores + col_scores) / float(max_possible_score)
+        self.set_grid_score(grid, self.memo_smoothness_scores, result)
+        return result
+
+        # result = 0.0
+        #
+        # for row in range(0, grid.size - 1):
+        #     for col in range(0, grid.size - 1):
+        #         c1 = grid.getCellValue((row, col))
+        #         c2 = grid.getCellValue((row, col + 1))
+        #         if c1 == 0:  # skip the zeros, since this is a kinda of test of mergeability
+        #             pass
+        #         elif c1 == c2:
+        #             result += 1.0
+        #
+        # for cell in range(0, grid.size - 1):
+        #     for row in range(0, grid.size - 1):
+        #         c1 = grid.getCellValue((row, col))
+        #         c2 = grid.getCellValue((row + 1, col))
+        #         if c1 == 0:
+        #             pass
+        #         elif c1 == c2:
+        #             result += 1.0
+        #
+        # max_possible_score = pow(grid.size - 1, 2) * 2
+        # return result / float(max_possible_score)
 
     def reset_stats(self):
         self._highest_scoring_move = 0.0
