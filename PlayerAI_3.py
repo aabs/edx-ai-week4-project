@@ -5,8 +5,8 @@ import math
 from BaseAI_3 import BaseAI
 from Grid_3 import Grid
 
-deadline_offset = 0.06
-max_depth = 8
+deadline_offset = 0.09
+max_depth = 16
 plus_infinity = float(sys.maxsize)
 minus_infinity = -1.0 * plus_infinity
 orientation = [EAST, SOUTH, SOUTHEAST, NORTHEAST] = range(4)
@@ -21,10 +21,10 @@ class SafeDict(dict):
 
 
 class AlgorithmWeights:
-    def __init__(self, space_weight=10.0
+    def __init__(self, space_weight=1.7
                  , score_weight=1.0
-                 , monotonicity_weight=1.0
-                 , smoothness_weight=1.0):
+                 , monotonicity_weight=2.0
+                 , smoothness_weight=0.2):
         self.smoothness_weight = smoothness_weight
         self.monotonicity_weight = monotonicity_weight
         self.score_weight = score_weight
@@ -132,8 +132,8 @@ class PlayerAI(BaseAI):
         self.max_depth = max(self.max_depth, depth)
 
         if time.clock() >= self.deadline or self.terminal_test(grid) or depth == max_depth:
-            return self.utility2(grid)
-            # s = self.utility(grid, num_moves, is_maximiser)
+            #return self.utility(grid)
+            return self.utility3(grid)
             # return s.cumulative_score
 
         if is_maximiser:
@@ -255,6 +255,7 @@ class PlayerAI(BaseAI):
     def utility2(self, grid: Grid) -> float:
         acc = 0.0
         tests = 0.0
+        size = grid.size
         max_val = 0
         max_val_x = -1
         max_val_y = -1
@@ -290,16 +291,132 @@ class PlayerAI(BaseAI):
                 tests += 1.0
 
             # test for smoothness
-            acc += self.weights.smoothness_weight if v2 == v1 and v1 != 0 else 0.0
+            acc += abs(v1l-v2l) * self.weights.smoothness_weight
             tests += 1.0
 
-            # score for emptiness
-            acc += self.weights.space_weight if v2 == v1 and v1 == 0 else 0.0
-            tests += 1.0
+        # score for emptiness
+        acc *= math.log(len(grid.getAvailableCells())) * self.weights.space_weight
 
         # penalise for having the highest position out of place
         # ml = math.log(max_val)/math.log(2)
         # dist = math.sqrt(math.pow(grid.size - max_val_x, 2)+math.pow(grid.size - max_val_y, 2))
         # acc -= (dist * max_val)
         # tests += 1
-        return acc/tests
+        return acc
+
+    def utility3(self, grid):
+        cells = len(grid.getAvailableCells())
+        space_score = cells  * self.weights.space_weight if cells > 0 else 0.0
+        max_val_score = grid.getMaxTile() * self.weights.score_weight
+        monotonicity_score = self.calculate_monotonicity2(grid) * self.weights.monotonicity_weight
+        smoothness_score = self.calculate_smoothness(grid) * self.weights.smoothness_weight
+        return space_score + max_val_score + monotonicity_score + smoothness_score
+
+    def utility(self, grid: Grid, num_moves: int, is_maximising: bool) -> Utility:
+        # if is not maximising, then the utility needs to be weighted by the probablility of the move occurring since
+        # the minimisers moves are probabilistic
+        space_score = (len(grid.getAvailableCells()) / (grid.size * grid.size))
+        max_val_score = (grid.getMaxTile() / 2048)
+        monotonicity_score = self.calculate_monotonicity2(grid)
+        smoothness_score = self.calculate_smoothness(grid)
+        division_factor = (float(num_moves) if not is_maximising else 1.0)
+        return Utility(self.weights, space_score, max_val_score, monotonicity_score, smoothness_score, division_factor)
+
+    def calculate_monotonicity2(self, grid):
+        repr_hash = hash(str(grid.map))
+        score = self.memo_monotonicity_scores[repr_hash]
+        if score is not None:
+            return score
+        # first get cumulative scores for all rows
+        sum = 0.0
+        h1 = 0.0
+        h2 = 0.0
+        for vec in grid.map:
+            h1 += self.vector_monotonicity(vec)
+        for vec in grid.map:
+            h2 += self.vector_monotonicity(vec[::-1])
+        sum += max(h1, h2)
+        v1 = 0.0
+        v2 = 0.0
+        for x in range(0, grid.size):
+            col = self.get_column(grid, x)
+            v1 += self.vector_monotonicity(col)
+        for x in range(0, grid.size):
+            col = self.get_column(grid, x)
+            v2 += self.vector_monotonicity(col[::-1])
+        sum += max(v1, v2)
+        self.set_grid_score(grid, self.memo_monotonicity_scores, sum)
+        return sum
+
+    def get_column(self, grid, col_index):
+        return [grid.getCellValue((x, col_index)) for x in range(0, grid.size)]
+
+    def vector_monotonicity(self, vec):
+        repr_hash = hash(repr(vec))
+        score = self.memo_monotonicity_scores[repr_hash]
+        if score is not None:
+            return score
+        acc = 0.0
+        for x in range(0, len(vec)-1):
+            v1 = math.log(vec[x], 2) if vec[x] > 0 else 0
+            v2 = math.log(vec[x+1], 2) if vec[x+1] > 0 else 0
+            acc += (v2 - v1)
+        self.memo_monotonicity_scores[repr_hash] = acc
+        return acc
+
+    def vector_smoothness(self, vec):
+        repr_hash = hash(repr(vec))
+        score = self.memo_smoothness_scores[repr_hash]
+        if score is not None:
+            return score
+        acc = 0.0
+        for x in range(0, len(vec) - 1):
+            v1 = math.log(vec[x]) / math.log(2) if vec[x] > 0 else 0
+            v2 = math.log(vec[x + 1]) / math.log(2) if vec[x + 1] > 0 else 0
+            if v1 == 0 and v2 == 0:
+                break
+            if v1 == v2:
+                acc += 1.0
+            else:
+                acc -= (max(v1, v2) - min(v1, v2))
+        self.memo_smoothness_scores[repr_hash] = acc
+        return acc
+    def get_grid_score(self, grid: Grid, scores: SafeDict) -> float:
+        repr_hash = hash(str(grid.map))
+        return scores[repr_hash]
+
+    def set_grid_score(self, grid: Grid, scores: SafeDict, score: float):
+        repr_hash = hash(str(grid.map))
+        scores[repr_hash] = score
+
+    def calculate_smoothness(self, grid):
+        score = self.get_grid_score(grid, self.memo_smoothness_scores)
+        if score is not None:
+            return score
+        row_scores = sum([self.vector_smoothness(v) for v in grid.map])
+        col_scores = sum([self.vector_smoothness(self.get_column(grid, col)) for col in range(0, grid.size)])
+        max_possible_score = pow(grid.size - 1, 2) * 2
+        result = (row_scores + col_scores) / float(max_possible_score)
+        self.set_grid_score(grid, self.memo_smoothness_scores, result)
+        return result
+
+# Grid.prototype.smoothness = function() {
+#   var smoothness = 0;
+#   for (var x=0; x<4; x++) {
+#     for (var y=0; y<4; y++) {
+#       if ( this.cellOccupied( this.indexes[x][y] )) {
+#         var value = Math.log(this.cellContent( this.indexes[x][y] ).value) / Math.log(2);
+#         for (var direction=1; direction<=2; direction++) {
+#           var vector = this.getVector(direction);
+#           var targetCell = this.findFarthestPosition(this.indexes[x][y], vector).next;
+#
+#           if (this.cellOccupied(targetCell)) {
+#             var target = this.cellContent(targetCell);
+#             var targetValue = Math.log(target.value) / Math.log(2);
+#             smoothness -= Math.abs(value - targetValue);
+#           }
+#         }
+#       }
+#     }
+#   }
+#   return smoothness
