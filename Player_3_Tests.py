@@ -1,7 +1,11 @@
 import unittest
 
+from BaseDisplayer_3 import BaseDisplayer
+from ComputerAI_3 import ComputerAI
+from GameManager_3 import GameManager
 from Grid_3 import Grid
 from PlayerAI_3 import PlayerAI
+import cma
 
 
 class Player3Tests(unittest.TestCase):
@@ -54,15 +58,15 @@ class Player3Tests(unittest.TestCase):
         a1 = sut.calculate_smoothness(g1)
         self.assertEqual(a1, 0)
 
-
-
     def create_player(self) -> PlayerAI:
         return PlayerAI()
 
     def create_empty_grid(self) -> Grid:
         return self.create_grid(0)
+
     def create_smooth_grid(self) -> Grid:
         return self.create_grid(2)
+
     def create_grid(self, val) -> Grid:
         sut = Grid()
         s = 4
@@ -70,6 +74,7 @@ class Player3Tests(unittest.TestCase):
             for y in range(s):
                 sut.setCellValue((x, y), val)
         return sut
+
     def create_anti_monotonic_grid(self) -> Grid:
         sut = Grid()
         s = 4
@@ -87,3 +92,40 @@ class Player3Tests(unittest.TestCase):
                 v = pow(2, (x + y))
                 sut.setCellValue((x, y), v if v > 1 else 0)
         return sut
+
+
+class GameBuilder:
+    def __init__(self):
+        self.grid = Grid()
+        self.game_manager = GameManager()
+        self.playerAI = PlayerAI()
+        self.computerAI = ComputerAI()
+        self.displayer = BaseDisplayer()
+
+    def build(self) -> GameManager:
+        self.game_manager.setDisplayer(self.displayer)
+        self.game_manager.setPlayerAI(self.playerAI)
+        self.game_manager.setComputerAI(self.computerAI)
+        return self.game_manager
+
+
+class GameplayTests(unittest.TestCase):
+    def test_can_run_game(self):
+        sut = GameBuilder().build()
+        sut.start()
+        self.assertIsNotNone(sut.playerAI.transcript)
+        self.assertGreater(len(sut.playerAI.transcript), 0)
+        print("moves: ", len(sut.playerAI.transcript))
+
+    def test_optimise_player_weights(self):
+        es = cma.CMAEvolutionStrategy(5 * [1.0], 0.5)
+        while not es.stop():
+            solutions = es.ask()
+            es.tell(solutions, [self.run_solution(x) for x in solutions])
+        es.result_pretty()
+
+    def run_solution(self, solution: list) -> int:
+        sut = GameBuilder().build()
+        sut.playerAI.set_weights(solution[0], solution[1], solution[2], solution[3], solution[4])
+        sut.start()
+        return sut.grid.getMaxTile()
