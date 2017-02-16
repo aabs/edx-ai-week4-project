@@ -5,10 +5,11 @@ import math
 from BaseAI_3 import BaseAI
 from Grid_3 import Grid
 
-deadline_offset = 0.09
+deadline_offset = 0.06
 max_depth = 8
 plus_infinity = float(sys.maxsize)
 minus_infinity = -1.0 * plus_infinity
+orientation = [EAST, SOUTH, SOUTHEAST, NORTHEAST] = range(4)
 
 
 # http://www.wikihow.com/Beat-2048#Step_by_Step_Strategy_Guide_sub
@@ -20,14 +21,12 @@ class SafeDict(dict):
 
 
 class AlgorithmWeights:
-    def __init__(self, space_weight=3.0
+    def __init__(self, space_weight=10.0
                  , score_weight=1.0
-                 , compactability_weight=1.0
-                 , monotonicity_weight=3.0
-                 , smoothness_weight=2.0):
+                 , monotonicity_weight=1.0
+                 , smoothness_weight=1.0):
         self.smoothness_weight = smoothness_weight
         self.monotonicity_weight = monotonicity_weight
-        self.compactability_weight = compactability_weight
         self.score_weight = score_weight
         self.space_weight = space_weight
 
@@ -78,19 +77,16 @@ class PlayerAI(BaseAI):
 
     def set_weights(self, space_weight=2.0
                     , score_weight=1.0
-                    , compactability_weight=1.0
                     , monotonicity_weight=1.0
                     , smoothness_weight=1.0
                     ):
         self.weights = AlgorithmWeights(space_weight
                                         , score_weight
-                                        , compactability_weight
                                         , monotonicity_weight
                                         , smoothness_weight)
         print("weights",
               space_weight
               , score_weight
-              , compactability_weight
               , monotonicity_weight
               , smoothness_weight)
 
@@ -136,8 +132,9 @@ class PlayerAI(BaseAI):
         self.max_depth = max(self.max_depth, depth)
 
         if time.clock() >= self.deadline or self.terminal_test(grid) or depth == max_depth:
-            s = self.utility(grid, num_moves, is_maximiser)
-            return s.cumulative_score
+            return self.utility2(grid)
+            # s = self.utility(grid, num_moves, is_maximiser)
+            # return s.cumulative_score
 
         if is_maximiser:
             result = minus_infinity
@@ -189,16 +186,6 @@ class PlayerAI(BaseAI):
     def terminal_test(self, grid):
         return not grid.canMove()
 
-    def utility(self, grid: Grid, num_moves: int, is_maximising: bool) -> Utility:
-        # if is not maximising, then the utility needs to be weighted by the probablility of the move occurring since
-        # the minimisers moves are probabilistic
-        space_score = (len(grid.getAvailableCells()) / (grid.size * grid.size))
-        max_val_score = (grid.getMaxTile() / 2048)
-        monotonicity_score = self.calculate_monotonicity2(grid)
-        smoothness_score = self.calculate_smoothness(grid)
-        division_factor = (float(num_moves) if not is_maximising else 1.0)
-        return Utility(self.weights, space_score, max_val_score, monotonicity_score, smoothness_score, division_factor)
-
     def getMaximizerMoves(self, grid):
         moves = grid.getAvailableMoves()
         # always reject up(??) unless it is the only option to move
@@ -220,51 +207,6 @@ class PlayerAI(BaseAI):
                 new_grids.append((new_grid, 0.9 if new_value == 2 else 0.1))
         return new_grids
 
-    def calculate_monotonicity2(self, grid):
-        repr_hash = hash(str(grid.map))
-        score = self.memo_monotonicity_scores[repr_hash]
-        if score is not None:
-            return score
-        # first get cumulative scores for all rows
-        row_scores = sum([self.vector_monotonicity(v) for v in grid.map])
-        col_scores = sum([self.vector_monotonicity(self.get_column(grid, col)) for col in range(0, grid.size)])
-        result = row_scores + col_scores
-        self.set_grid_score(grid, self.memo_monotonicity_scores, result)
-        return result
-
-    def get_column(self, grid, col_index):
-        return [grid.getCellValue((x, col_index)) for x in range(0, grid.size)]
-
-    def vector_monotonicity(self, vec):
-        repr_hash = hash(repr(vec))
-        score = self.memo_monotonicity_scores[repr_hash]
-        if score is not None:
-            return score
-        acc = 0.0
-        for x in range(1, len(vec)):
-            v1 = math.log(vec[x - 1]) / math.log(2) if vec[x - 1] > 0 else 0
-            v2 = math.log(vec[x]) / math.log(2) if vec[x] > 0 else 0
-            acc += (v2 - v1)
-        self.memo_monotonicity_scores[repr_hash] = acc
-        return acc
-
-    def vector_smoothness(self, vec):
-        repr_hash = hash(repr(vec))
-        score = self.memo_smoothness_scores[repr_hash]
-        if score is not None:
-            return score
-        acc = 0.0
-        for x in range(0, len(vec) - 1):
-            v1 = math.log(vec[x]) / math.log(2) if vec[x] > 0 else 0
-            v2 = math.log(vec[x + 1]) / math.log(2) if vec[x + 1] > 0 else 0
-            if v1 == 0 and v2 == 0:
-                break
-            if v1 == v2:
-                acc += 1.0
-            else:
-                acc -= (max(v1, v2) - min(v1, v2))
-        self.memo_smoothness_scores[repr_hash] = acc
-        return acc
     def get_grid_score(self, grid: Grid, scores: SafeDict) -> float:
         repr_hash = hash(str(grid.map))
         return scores[repr_hash]
@@ -273,43 +215,91 @@ class PlayerAI(BaseAI):
         repr_hash = hash(str(grid.map))
         scores[repr_hash] = score
 
-    def calculate_smoothness(self, grid):
-        score = self.get_grid_score(grid, self.memo_smoothness_scores)
-        if score is not None:
-            return score
-        row_scores = sum([self.vector_smoothness(v) for v in grid.map])
-        col_scores = sum([self.vector_smoothness(self.get_column(grid, col)) for col in range(0, grid.size)])
-        max_possible_score = pow(grid.size - 1, 2) * 2
-        result = (row_scores + col_scores) / float(max_possible_score)
-        self.set_grid_score(grid, self.memo_smoothness_scores, result)
-        return result
-
-        # result = 0.0
-        #
-        # for row in range(0, grid.size - 1):
-        #     for col in range(0, grid.size - 1):
-        #         c1 = grid.getCellValue((row, col))
-        #         c2 = grid.getCellValue((row, col + 1))
-        #         if c1 == 0:  # skip the zeros, since this is a kinda of test of mergeability
-        #             pass
-        #         elif c1 == c2:
-        #             result += 1.0
-        #
-        # for cell in range(0, grid.size - 1):
-        #     for row in range(0, grid.size - 1):
-        #         c1 = grid.getCellValue((row, col))
-        #         c2 = grid.getCellValue((row + 1, col))
-        #         if c1 == 0:
-        #             pass
-        #         elif c1 == c2:
-        #             result += 1.0
-        #
-        # max_possible_score = pow(grid.size - 1, 2) * 2
-        # return result / float(max_possible_score)
-
     def reset_stats(self):
         self._highest_scoring_move = 0.0
         self._lowest_scoring_position = 0.0
         self._move_chosen = None
         self._grid_chosen = None
         self._branches_ignored = 0
+
+    def generate_horizontal_pairs(self, grid):
+        for row in range(0, grid.size-1):
+            for col in range(0, grid.size-1):
+                yield (grid.getCellValue((row, col)), grid.getCellValue((row, col+1)), EAST, (row,col))
+
+    def generate_vertical_pairs(self, grid):
+        for col in range(0, grid.size-1):
+            for row in range(0, grid.size-1):
+                yield (grid.getCellValue((row, col)), grid.getCellValue((row+1, col)), SOUTH, (row,col))
+
+    def generate_diagonal_se_pairs(self, grid):
+        for col in range(0, grid.size-1):
+            for row in range(0, grid.size-1):
+                yield (grid.getCellValue((row, col)), grid.getCellValue((row+1, col+1)), SOUTHEAST, (row,col))
+
+    def generate_diagonal_ne_pairs(self, grid):
+        for col in range(0, grid.size-1):
+            for row in range(1, grid.size):
+                yield (grid.getCellValue((row, col)), grid.getCellValue((row-1, col+1)), NORTHEAST, (row,col))
+
+    def generate_all_pairs(self, grid):
+        for pair in self.generate_horizontal_pairs(grid):
+            yield pair
+        for pair in self.generate_vertical_pairs(grid):
+            yield pair
+        for pair in self.generate_diagonal_se_pairs(grid):
+            yield pair
+        for pair in self.generate_diagonal_ne_pairs(grid):
+            yield pair
+
+    def utility2(self, grid: Grid) -> float:
+        acc = 0.0
+        tests = 0.0
+        max_val = 0
+        max_val_x = -1
+        max_val_y = -1
+        for v1, v2, orient, (x,y) in self.generate_all_pairs(grid):
+            v1l = math.log(v1, 2) if v1 > 0 else 0.0
+            v2l = math.log(v2, 2) if v2 > 0 else 0.0
+
+            # find out where the max tile is
+            if v1 > max_val:
+                max_val = v1
+                max_val_x = x
+                max_val_y = y
+
+            if v2 > max_val:
+                max_val = v2
+                if orient == EAST:
+                    max_val_x = x+1
+                    max_val_y = y
+                if orient == SOUTH:
+                    max_val_x = x
+                    max_val_y = y+1
+                if orient == SOUTHEAST:
+                    max_val_x = x+1
+                    max_val_y = y+1
+                if orient == NORTHEAST:
+                    max_val_x = x+1
+                    max_val_y = y-1
+
+            # score for monotonicity
+            if orient != NORTHEAST:
+                # acc += self.weights.monotonicity_weight if v2 > v1 else 0.0
+                acc += (v2l-v1l) * self.weights.monotonicity_weight
+                tests += 1.0
+
+            # test for smoothness
+            acc += self.weights.smoothness_weight if v2 == v1 and v1 != 0 else 0.0
+            tests += 1.0
+
+            # score for emptiness
+            acc += self.weights.space_weight if v2 == v1 and v1 == 0 else 0.0
+            tests += 1.0
+
+        # penalise for having the highest position out of place
+        # ml = math.log(max_val)/math.log(2)
+        # dist = math.sqrt(math.pow(grid.size - max_val_x, 2)+math.pow(grid.size - max_val_y, 2))
+        # acc -= (dist * max_val)
+        # tests += 1
+        return acc/tests

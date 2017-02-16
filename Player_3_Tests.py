@@ -1,6 +1,7 @@
 import unittest
 
 import time
+from encodings.punycode import selective_find
 
 from BaseDisplayer_3 import BaseDisplayer
 from ComputerAI_3 import ComputerAI
@@ -47,7 +48,7 @@ class Player3Tests(unittest.TestCase):
     def test_anti_monotonic_grids_should_have_negative_score(self):
         g1 = self.create_anti_monotonic_grid()
         sut = self.create_player()
-        a1 = sut.calculate_monotonicity2(g1)
+        a1 = sut.utility2(g1)
         self.assertGreater(0, a1)
 
     def test_uniform_grid_should_have_perfect_score(self):
@@ -97,6 +98,11 @@ class Player3Tests(unittest.TestCase):
                 sut.setCellValue((x, y), v if v > 1 else 0)
         return sut
 
+    def test_pairs(self):
+        g = self.create_grid(2)
+        sut = self.create_player()
+        len = sum(1 for _ in sut.generate_all_pairs(g))
+        self.assertEqual(4*9, len)
 
 class GameBuilder:
     def __init__(self):
@@ -122,23 +128,25 @@ class GameplayTests(unittest.TestCase):
         print("moves: ", len(sut.playerAI.transcript))
 
     def test_optimise_player_weights(self):
-        options = {'CMA_diagonal': 100, 'seed': 1234, 'verb_time': 0}
-        res = cma.fmin(self.run_solution, [1.0] * 5, 1.0, options)
-        print(res)
-        # es = cma.CMAEvolutionStrategy(5 * [1.0], 0.5)
-        # while not es.stop():
-        #     solutions = es.ask()
-        #     # results = [65564 - self.run_solution(x) for x in solutions]
-        #     # sys.stdout = sys.__stdout__
-        #     # print("results: ", results)
-        #     # es.tell(solutions, results)
-        # es.result_pretty()
+        # options = {'CMA_diagonal': 100, 'seed': 1234, 'verb_time': 0}
+        # res = cma.fmin(self.run_solution, [1.0] * 4, 1.0, options)
+        # print(res)
+        es = cma.CMAEvolutionStrategy(5 * [1.0], 0.5)
+        while not es.stop():
+            solutions = es.ask()
+            sys.stdout = CaptureOutput()
+            results = [self.run_solution(x) for x in solutions]
+            sys.stdout = sys.__stdout__
+            print("results: ", results)
+            es.tell(solutions, results)
+        es.result_pretty()
 
     def run_solution(self, solution: list) -> int:
         sut = GameBuilder().build()
-        sut.playerAI.set_weights(solution[0], solution[1], solution[2], solution[3], solution[4])
+        sut.playerAI.set_weights(solution[0], solution[1], solution[2], solution[3])
         sut.start()
-        return 60000 - sut.grid.getMaxTile()
+        sys.__stdout__.write(str(sut.grid.getMaxTile()))
+        return 2048 - sut.grid.getMaxTile()
 
 
 class CaptureOutput:
