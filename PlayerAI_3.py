@@ -6,7 +6,7 @@ from BaseAI_3 import BaseAI
 from Grid_3 import Grid
 
 deadline_offset = 0.09
-max_depth = 16
+max_depth = 8
 plus_infinity = float(sys.maxsize)
 minus_infinity = -1.0 * plus_infinity
 orientation = [EAST, SOUTH, SOUTHEAST, NORTHEAST] = range(4)
@@ -21,10 +21,10 @@ class SafeDict(dict):
 
 
 class AlgorithmWeights:
-    def __init__(self, space_weight=1.7
+    def __init__(self, space_weight=3.0
                  , score_weight=1.0
-                 , monotonicity_weight=2.0
-                 , smoothness_weight=0.2):
+                 , monotonicity_weight=1.0
+                 , smoothness_weight=6.0):
         self.smoothness_weight = smoothness_weight
         self.monotonicity_weight = monotonicity_weight
         self.score_weight = score_weight
@@ -74,6 +74,7 @@ class PlayerAI(BaseAI):
         self.weights = AlgorithmWeights()
         self.memo_monotonicity_scores = SafeDict([])
         self.memo_smoothness_scores = SafeDict([])
+        self.snake = [10, 8, 7, 6.5, .5, .7, 1, 3, -.5, -1.5, -1.8, -2, -3.8, -3.7, -3.5, -3]
 
     def set_weights(self, space_weight=2.0
                     , score_weight=1.0
@@ -119,21 +120,21 @@ class PlayerAI(BaseAI):
         child_grids = [(self.gen_grid(move, grid), move) for move in moves]
         # create a list of tuple(score, grid, move)
         assessed_children = sorted(
-            [(self.score_grid(child, minus_infinity, plus_infinity, True, len(moves)), child[0], child[1]) for child
+            [(self.score_grid(child, minus_infinity, plus_infinity, True, len(moves), 2), child[0], child[1]) for child
              in
              child_grids], key=lambda m: m[0], reverse=True)
         chosen_move = assessed_children[0][2]
         self.moves.append(chosen_move)
         return chosen_move
 
-    def score_grid(self, gm, alpha, beta, is_maximiser, num_moves, depth=0):
+    def score_grid(self, gm, alpha, beta, is_maximiser, num_moves, depth=max_depth):
         (grid, originating_move) = gm
 
         self.max_depth = max(self.max_depth, depth)
 
-        if time.clock() >= self.deadline or self.terminal_test(grid) or depth == max_depth:
-            #return self.utility(grid)
-            return self.utility3(grid)
+        if depth == 0 or time.clock() >= self.deadline or self.terminal_test(grid):
+            # return self.utility(grid)
+            return self.utility4(grid)
             # return s.cumulative_score
 
         if is_maximiser:
@@ -141,12 +142,13 @@ class PlayerAI(BaseAI):
 
             for move in self.getMaximizerMoves(grid):
                 child_grid = self.gen_grid(move, grid)
+                free = len(child_grid.getAvailableCells())
                 s = self.score_grid((child_grid, move),
                                     alpha,
                                     beta,
                                     not is_maximiser,
                                     num_moves,
-                                    depth + 1)
+                                    depth - 1)
                 result = max(result, s)
                 alpha = max(alpha, result)
                 if beta <= alpha:
@@ -155,14 +157,15 @@ class PlayerAI(BaseAI):
             return result
         else:
             result = plus_infinity
-            for move in self.getMinimizerMoves(grid):
+            sub_moves = self.getMinimizerMoves(grid)
+            for move in sub_moves:
                 (child_grid, prob) = move
                 s = self.score_grid((child_grid, move),
                                     alpha,
                                     beta,
                                     not is_maximiser,
                                     num_moves,
-                                    depth + 1)
+                                    depth - 1)
                 result = min(result, s)
                 alpha = min(alpha, result)
                 if beta <= alpha:
@@ -223,24 +226,24 @@ class PlayerAI(BaseAI):
         self._branches_ignored = 0
 
     def generate_horizontal_pairs(self, grid):
-        for row in range(0, grid.size-1):
-            for col in range(0, grid.size-1):
-                yield (grid.getCellValue((row, col)), grid.getCellValue((row, col+1)), EAST, (row,col))
+        for row in range(0, grid.size - 1):
+            for col in range(0, grid.size - 1):
+                yield (grid.getCellValue((row, col)), grid.getCellValue((row, col + 1)), EAST, (row, col))
 
     def generate_vertical_pairs(self, grid):
-        for col in range(0, grid.size-1):
-            for row in range(0, grid.size-1):
-                yield (grid.getCellValue((row, col)), grid.getCellValue((row+1, col)), SOUTH, (row,col))
+        for col in range(0, grid.size - 1):
+            for row in range(0, grid.size - 1):
+                yield (grid.getCellValue((row, col)), grid.getCellValue((row + 1, col)), SOUTH, (row, col))
 
     def generate_diagonal_se_pairs(self, grid):
-        for col in range(0, grid.size-1):
-            for row in range(0, grid.size-1):
-                yield (grid.getCellValue((row, col)), grid.getCellValue((row+1, col+1)), SOUTHEAST, (row,col))
+        for col in range(0, grid.size - 1):
+            for row in range(0, grid.size - 1):
+                yield (grid.getCellValue((row, col)), grid.getCellValue((row + 1, col + 1)), SOUTHEAST, (row, col))
 
     def generate_diagonal_ne_pairs(self, grid):
-        for col in range(0, grid.size-1):
+        for col in range(0, grid.size - 1):
             for row in range(1, grid.size):
-                yield (grid.getCellValue((row, col)), grid.getCellValue((row-1, col+1)), NORTHEAST, (row,col))
+                yield (grid.getCellValue((row, col)), grid.getCellValue((row - 1, col + 1)), NORTHEAST, (row, col))
 
     def generate_all_pairs(self, grid):
         for pair in self.generate_horizontal_pairs(grid):
@@ -259,7 +262,7 @@ class PlayerAI(BaseAI):
         max_val = 0
         max_val_x = -1
         max_val_y = -1
-        for v1, v2, orient, (x,y) in self.generate_all_pairs(grid):
+        for v1, v2, orient, (x, y) in self.generate_all_pairs(grid):
             v1l = math.log(v1, 2) if v1 > 0 else 0.0
             v2l = math.log(v2, 2) if v2 > 0 else 0.0
 
@@ -272,26 +275,26 @@ class PlayerAI(BaseAI):
             if v2 > max_val:
                 max_val = v2
                 if orient == EAST:
-                    max_val_x = x+1
+                    max_val_x = x + 1
                     max_val_y = y
                 if orient == SOUTH:
                     max_val_x = x
-                    max_val_y = y+1
+                    max_val_y = y + 1
                 if orient == SOUTHEAST:
-                    max_val_x = x+1
-                    max_val_y = y+1
+                    max_val_x = x + 1
+                    max_val_y = y + 1
                 if orient == NORTHEAST:
-                    max_val_x = x+1
-                    max_val_y = y-1
+                    max_val_x = x + 1
+                    max_val_y = y - 1
 
             # score for monotonicity
             if orient != NORTHEAST:
                 # acc += self.weights.monotonicity_weight if v2 > v1 else 0.0
-                acc += (v2l-v1l) * self.weights.monotonicity_weight
+                acc += (v2l - v1l) * self.weights.monotonicity_weight
                 tests += 1.0
 
             # test for smoothness
-            acc += abs(v1l-v2l) * self.weights.smoothness_weight
+            acc += abs(v1l - v2l) * self.weights.smoothness_weight
             tests += 1.0
 
         # score for emptiness
@@ -306,7 +309,7 @@ class PlayerAI(BaseAI):
 
     def utility3(self, grid):
         cells = len(grid.getAvailableCells())
-        space_score = cells  * self.weights.space_weight if cells > 0 else 0.0
+        space_score = cells * self.weights.space_weight if cells > 0 else 0.0
         max_val_score = grid.getMaxTile() * self.weights.score_weight
         monotonicity_score = self.calculate_monotonicity2(grid) * self.weights.monotonicity_weight
         smoothness_score = self.calculate_smoothness(grid) * self.weights.smoothness_weight
@@ -357,9 +360,9 @@ class PlayerAI(BaseAI):
         if score is not None:
             return score
         acc = 0.0
-        for x in range(0, len(vec)-1):
+        for x in range(0, len(vec) - 1):
             v1 = math.log(vec[x], 2) if vec[x] > 0 else 0
-            v2 = math.log(vec[x+1], 2) if vec[x+1] > 0 else 0
+            v2 = math.log(vec[x + 1], 2) if vec[x + 1] > 0 else 0
             acc += (v2 - v1)
         self.memo_monotonicity_scores[repr_hash] = acc
         return acc
@@ -371,8 +374,12 @@ class PlayerAI(BaseAI):
             return score
         acc = 0.0
         for x in range(0, len(vec) - 1):
-            v1 = math.log(vec[x]) / math.log(2) if vec[x] > 0 else 0
-            v2 = math.log(vec[x + 1]) / math.log(2) if vec[x + 1] > 0 else 0
+            v1 = math.log(vec[x], 2) if vec[x] > 0 else 0
+            inc = 1
+            v2 = math.log(vec[x + inc], 2) if vec[x + inc] > 0 else 0
+            while v2 == 0 and (x + inc) < len(vec) - 1:
+                inc += 1
+                v2 = math.log(vec[x + inc], 2) if vec[x + inc] > 0 else 0
             if v1 == 0 and v2 == 0:
                 break
             if v1 == v2:
@@ -381,13 +388,6 @@ class PlayerAI(BaseAI):
                 acc -= (max(v1, v2) - min(v1, v2))
         self.memo_smoothness_scores[repr_hash] = acc
         return acc
-    def get_grid_score(self, grid: Grid, scores: SafeDict) -> float:
-        repr_hash = hash(str(grid.map))
-        return scores[repr_hash]
-
-    def set_grid_score(self, grid: Grid, scores: SafeDict, score: float):
-        repr_hash = hash(str(grid.map))
-        scores[repr_hash] = score
 
     def calculate_smoothness(self, grid):
         score = self.get_grid_score(grid, self.memo_smoothness_scores)
@@ -400,23 +400,12 @@ class PlayerAI(BaseAI):
         self.set_grid_score(grid, self.memo_smoothness_scores, result)
         return result
 
-# Grid.prototype.smoothness = function() {
-#   var smoothness = 0;
-#   for (var x=0; x<4; x++) {
-#     for (var y=0; y<4; y++) {
-#       if ( this.cellOccupied( this.indexes[x][y] )) {
-#         var value = Math.log(this.cellContent( this.indexes[x][y] ).value) / Math.log(2);
-#         for (var direction=1; direction<=2; direction++) {
-#           var vector = this.getVector(direction);
-#           var targetCell = this.findFarthestPosition(this.indexes[x][y], vector).next;
-#
-#           if (this.cellOccupied(targetCell)) {
-#             var target = this.cellContent(targetCell);
-#             var targetValue = Math.log(target.value) / Math.log(2);
-#             smoothness -= Math.abs(value - targetValue);
-#           }
-#         }
-#       }
-#     }
-#   }
-#   return smoothness
+    def utility4(self, grid: Grid):
+        cells = len(grid.getAvailableCells())
+        return cells * self.weights.space_weight + self.dot_product(grid) * self.weights.smoothness_weight
+
+    def dot_product(self, grid):
+        return sum([a * b for a, b in zip(self.snake, self.grid_to_list(grid))])
+
+    def grid_to_list(self, grid):
+        return grid.map[0] + grid.map[1] + grid.map[2] + grid.map[3]
