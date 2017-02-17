@@ -143,10 +143,10 @@ class GameplayTests(unittest.TestCase):
 
     def run_solution(self, solution: list) -> int:
         sut = GameBuilder().build()
-        sut.playerAI.set_weights(solution[0], solution[1], solution[2], solution[3])
+        sut.playerAI.set_weights(solution[0], solution[1])
         sut.start()
         sys.__stdout__.write(str(sut.grid.getMaxTile()))
-        return 2048 - sut.grid.getMaxTile()
+        return sut.grid.getMaxTile()
 
 
 class CaptureOutput:
