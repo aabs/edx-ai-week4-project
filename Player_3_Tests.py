@@ -104,6 +104,23 @@ class Player3Tests(unittest.TestCase):
         len = sum(1 for _ in sut.generate_all_pairs(g))
         self.assertEqual(4*9, len)
 
+    def test_kernel(self):
+        p = PlayerAI()
+        sut = p.compute_kernel()
+        self.assertIsNotNone(sut)
+
+    def test_weights_kernel_is_symetrical(self):
+        p = PlayerAI()
+        sut = p.compute_kernel()
+        self.assertAlmostEqual(sut[0] + sut[15], 0.0, 4)
+
+    def test_can_compute_score(self):
+
+        g1 = self.create_smooth_grid()
+        sut = self.create_player()
+        a1 = sut.utility4(g1)
+        self.assertEqual(a1, 1.0)
+
 class GameBuilder:
     def __init__(self):
         self.grid = Grid()

@@ -6,7 +6,7 @@ from BaseAI_3 import BaseAI
 from Grid_3 import Grid
 
 deadline_offset = 0.09
-max_depth = 8
+max_depth = 16
 plus_infinity = float(sys.maxsize)
 minus_infinity = -1.0 * plus_infinity
 orientation = [EAST, SOUTH, SOUTHEAST, NORTHEAST] = range(4)
@@ -21,7 +21,7 @@ class SafeDict(dict):
 
 
 class AlgorithmWeights:
-    def __init__(self, space_weight=1.0
+    def __init__(self, space_weight=4.0
                  , score_weight=1.0
                  , monotonicity_weight=1.0
                  , smoothness_weight=1.0):
@@ -52,7 +52,7 @@ class PlayerAI(BaseAI):
               , smoothness_weight)
     def compute_kernel(self) -> list:
         width = 4
-        weight = 2.5
+        weight = 1.5
         result = [0] * int(math.pow(width, 2))
         min_val = math.pow(2, weight)
         max_val = math.pow((2*(width-1))+2, weight)
@@ -60,7 +60,7 @@ class PlayerAI(BaseAI):
         for x in range(0, width):
             for y in range(0, width):
                 idx = (y * width) + x
-                result[idx] = math.pow(x + y + 2, weight) - (total_range/2)
+                result[idx] = math.pow(x + y + 2, weight) - (total_range/2) - min_val
         return result
     def __del__(self):
         print("Player AI shutting down")
@@ -78,14 +78,14 @@ class PlayerAI(BaseAI):
         child_grids = [(self.gen_grid(move, grid), move) for move in moves]
         # create a list of tuple(score, grid, move)
         assessed_children = sorted(
-            [(self.score_grid(child, minus_infinity, plus_infinity, True, len(moves), 2), child[0], child[1]) for child
+            [(self.score_grid(child, minus_infinity, plus_infinity, True, len(moves), max_depth), child[0], child[1]) for child
              in
              child_grids], key=lambda m: m[0], reverse=True)
         chosen_move = assessed_children[0][2]
         self.moves.append(chosen_move)
         return chosen_move
 
-    def score_grid(self, gm, alpha, beta, is_maximiser, num_moves, depth=max_depth):
+    def score_grid(self, gm, alpha, beta, is_maximiser, num_moves, depth=0):
         (grid, originating_move) = gm
 
         self.max_depth = max(self.max_depth, depth)
