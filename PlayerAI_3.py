@@ -38,8 +38,9 @@ class PlayerAI(BaseAI):
         self.weights = AlgorithmWeights()
         self.memo_monotonicity_scores = SafeDict([])
         self.memo_smoothness_scores = SafeDict([])
-        self.snake = [10, 8, 7, 6.5, .5, .7, 1, 3, -.5, -1.5, -1.8, -2, -3.8, -3.7, -3.5, -3]
-        self.snake = [math.exp(x) for x in self.snake]
+        # self.snake = [10, 8, 7, 6.5, .5, .7, 1, 3, -.5, -1.5, -1.8, -2, -3.8, -3.7, -3.5, -3]
+        # self.snake = [x * 10 for x in self.snake]
+        self.snake = self.compute_kernel()
 
     def set_weights(self, space_weight=1.0
                     , smoothness_weight=1.0
@@ -49,7 +50,18 @@ class PlayerAI(BaseAI):
         print("weights",
               space_weight
               , smoothness_weight)
-
+    def compute_kernel(self) -> list:
+        width = 4
+        weight = 2.5
+        result = [0] * int(math.pow(width, 2))
+        min_val = math.pow(2, weight)
+        max_val = math.pow((2*(width-1))+2, weight)
+        total_range = max_val - min_val
+        for x in range(0, width):
+            for y in range(0, width):
+                idx = (y * width) + x
+                result[idx] = math.pow(x + y + 2, weight) - (total_range/2)
+        return result
     def __del__(self):
         print("Player AI shutting down")
         print("max depth: ", self.max_depth)
@@ -94,34 +106,32 @@ class PlayerAI(BaseAI):
                                     not is_maximiser,
                                     num_moves,
                                     depth - 1)
+                # is this result better than anything I've seen on this node so far?
                 result = max(result, s)
+                # is this result better than anything I've seen on any node previously visited?
                 alpha = max(alpha, result)
+
+                # is this branch better than the worst that the minimiser can force me to?
                 if beta <= alpha:
-                    self._branches_ignored += 1
+                    # if yes, then we can expect the minimiser to avoid this branch on principle.
                     break
             return result
         else:
             result = plus_infinity
             sub_moves = self.getMinimizerMoves(grid)
+
             for move in sub_moves:
-                (child_grid, prob) = move
-                s = prob * self.score_grid((child_grid, move),
+                (child_grid, _) = move
+                s = self.score_grid((child_grid, move),
                                     alpha,
                                     beta,
                                     not is_maximiser,
                                     num_moves,
                                     depth - 1)
                 result = min(result, s)
-                alpha = min(alpha, result)
+                beta = min(beta, result)
                 if beta <= alpha:
-                    self._branches_ignored += 1
                     break
-            # adjust the weights on each of the possible moves to reflect the probability that it will happen do this
-            #  by summing all the probs across the board and then dividing each say there are 10 spaces left on the
-            # board. each will get a 2 and a 4 move generated for it, for a total of 20 possible moves 10 will have
-            # prob P_2 == 90% 10 will have prob P_4 == 10%., so the total prob per cell is 100%, and the prob of each
-            #  branch is The sum of probabilities will always add up to the number of possible moves, so each move
-            # can just be divided by that to get its overall probability
             return result
 
     def gen_grid(self, move, grid):
@@ -168,7 +178,6 @@ class PlayerAI(BaseAI):
         self._lowest_scoring_position = 0.0
         self._move_chosen = None
         self._grid_chosen = None
-        self._branches_ignored = 0
 
     def utility4(self, grid: Grid):
         cells = len(grid.getAvailableCells())
