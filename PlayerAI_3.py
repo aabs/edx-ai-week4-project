@@ -36,10 +36,10 @@ class PlayerAI(BaseAI):
         # self.kernel = [math.exp(x) for x in self.kernel]
         self.kernel = self.compute_kernel(create_snake=False, ramp_amplification=1.5)
 
-    def set_weights(self, space_weight=3.0
-                    , monotonicity_weight=4.0
-                    , roughness_weight=-2.0
-                    , max_tile_weight=0.0
+    def set_weights(self, space_weight=1.0
+                    , monotonicity_weight=3.0
+                    , roughness_weight=-3.0
+                    , max_tile_weight=1.0
                     ):
         self.weights = AlgorithmWeights(space_weight
                                         , monotonicity_weight
@@ -70,10 +70,6 @@ class PlayerAI(BaseAI):
                     idx = (row * width) + col
                     r[idx] = math.pow(row + col + 2, weight) - (total_range / 2) - min_val
             return r
-
-    def __del__(self):
-        print("Player AI shutting down")
-        print("max depth: ", self.max_depth_reached_so_far)
 
     def getMove(self, grid):
         # str_moves = ['UP', 'DOWN', 'LEFT', 'RIGHT']
@@ -270,8 +266,10 @@ class PlayerAI(BaseAI):
         if self.weights.roughness_weight != 0.0:
             r += self.roughness_fast(grid) * self.weights.roughness_weight
         if self.weights.free_space_weight != 0.0:
-            cells_ratio = len(grid.getAvailableCells()) / 16
-            r *= cells_ratio # doesn't matter how good the rest of the score is. If there is no space at the end, then the board is worthless
+            space = len(grid.getAvailableCells())
+            space_ = (1.0 / space ** 0.9) if space > 0.0 else 1.0
+            crampedness = self.weights.free_space_weight * min (1, 1 - space_)  # this figure grows geometrically as space dwindles
+            r *= crampedness # cramped boards are to be avoided at all costs. Penalise them heavily
         return r
 
     def utility5(self, grid: Grid):

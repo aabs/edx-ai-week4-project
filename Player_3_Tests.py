@@ -1,18 +1,8 @@
 import cProfile
 import unittest
 
-import time
-from encodings.punycode import selective_find
-
-from BaseDisplayer_3 import BaseDisplayer
-from ComputerAI_3 import ComputerAI
-from Displayer_3 import Displayer
-from GameManager_3 import GameManager
 from Grid_3 import Grid
 from PlayerAI_3 import PlayerAI
-import cma
-import collections
-import sys
 
 directions = [UP, DOWN, LEFT, RIGHT] = range(4)
 
@@ -238,54 +228,3 @@ UP would have been:
         self.assertEqual(a1, 1.0)
 
 
-class GameBuilder:
-    def __init__(self):
-        self.grid = Grid()
-        self.game_manager = GameManager()
-        self.playerAI = PlayerAI()
-        self.computerAI = ComputerAI()
-        self.displayer = BaseDisplayer()
-
-    def build(self) -> GameManager:
-        self.game_manager.setDisplayer(self.displayer)
-        self.game_manager.setPlayerAI(self.playerAI)
-        self.game_manager.setComputerAI(self.computerAI)
-        return self.game_manager
-
-    def with_displayer(self, displayer: BaseDisplayer):
-        self.displayer = displayer
-        return self
-
-
-class GameplayTests(unittest.TestCase):
-    def test_can_run_game(self):
-        sut = GameBuilder().with_displayer(Displayer()).build()
-        sut.start()
-        # self.assertIsNotNone(sut.playerAI.transcript)
-        # self.assertGreater(len(sut.playerAI.transcript), 0)
-        # print("moves: ", len(sut.playerAI.transcript))
-
-    def test_optimise_player_weights(self):
-        # options = {'CMA_diagonal': 100, 'seed': 1234, 'verb_time': 0}
-        # res = cma.fmin(self.run_solution, [1.0] * 4, 1.0, options)
-        # print(res)
-        es = cma.CMAEvolutionStrategy([1.0, 1.0, -1.0, 1.0], 2.0)
-        while not es.stop():
-            solutions = es.ask()
-            sys.stdout = CaptureOutput()
-            results = [4096 - self.run_solution(x) for x in solutions]
-            sys.stdout = sys.__stdout__
-            print("results: ", results)
-            es.tell(solutions, results)
-        es.result_pretty()
-
-    def run_solution(self, solution: list) -> int:
-        sut = GameBuilder().build()
-        sut.playerAI.set_weights(solution[0], solution[1], solution[2], solution[3])
-        sut.start()
-        return sut.grid.getMaxTile()
-
-
-class CaptureOutput:
-    def write(self, message):
-        pass
