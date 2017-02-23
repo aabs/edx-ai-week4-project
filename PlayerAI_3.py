@@ -27,7 +27,6 @@ minus_infinity = -1.0 * plus_infinity
 class PlayerAI(BaseAI):
     def __init__(self):
         self.deadline = None  # used to set a timeout on the exploration of possible moves
-        self.max_depth_reached_so_far = 0
         self.moves = []
         self.util_engine = CompositeUtilityCalculator(AlgorithmWeights(free_space_weight=1.0
                                                                   , monotonicity_weight=1.5
@@ -61,13 +60,12 @@ class PlayerAI(BaseAI):
             self.moves.append(moves[0])
             return moves[0]
 
-        child_grids = [(self.gen_grid(move, grid), move, str(grid.map)) for move in moves]
+        child_grids = [(self.gen_grid(move, grid), move) for move in moves]
         # create a list of tuple(score, grid, move)
         choice = None
         for m in child_grids:
-            (child, move, s) = m
+            (child, move) = m
             score = self.alphabeta_search((child, move), minus_infinity, plus_infinity, True, max_depth_allowed)
-            # print("%s (%f): %s"%(str_moves[move], score, s))
             if choice is None or score > choice[0]:
                 choice = (score, move)
         self.moves.append(choice)
@@ -75,7 +73,6 @@ class PlayerAI(BaseAI):
 
     def alphabeta_search(self, gm, alpha, beta, is_maximiser, depth):
         (grid, originating_move) = gm
-        self.max_depth_reached_so_far = max(self.max_depth_reached_so_far, depth)
 
         if depth == 0 or self.terminal_test(grid) or time.perf_counter() >= self.deadline:
             return self.util_engine.compute_utility(grid)
