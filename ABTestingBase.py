@@ -4,12 +4,14 @@ import random
 
 import math
 
+import sys
+
+from FastGrid import FastGrid
 from Grid_3 import Grid
 from PlayerAI_3 import PlayerAI
 
 
 class ABTestingBase(unittest.TestCase):
-
     def setup(self):
         self.profiler = None
 
@@ -39,11 +41,17 @@ class ABTestingBase(unittest.TestCase):
                 sut.setCellValue((x, y), val)
         return sut
 
-    def create_grid_from(self, val) -> Grid:
+    def create_slowgrid_from(self, val) -> Grid:
         sut = Grid()
         for row in range(4):
             for col in range(4):
                 sut.setCellValue((row, col), val[row][col])
+        return sut
+
+    def create_grid_from(self, newboard, size=4) -> FastGrid:
+        sut = FastGrid()
+        sut.board = newboard
+        sut.size = size
         return sut
 
     def create_anti_monotonic_grid(self) -> Grid:
@@ -75,3 +83,9 @@ class ABTestingBase(unittest.TestCase):
             for y in range(4):
                 r.setCellValue((x, y), random.choice(tiles))
         return r
+
+    def suppress_output(self):
+        sys.stdout = CaptureOutput()
+
+    def allow_output(self):
+        sys.stdout = sys.__stdout__

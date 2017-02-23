@@ -2,6 +2,7 @@ import math
 
 import array
 
+import FastGrid
 from AlgWeights import AlgorithmWeights
 from Caching import GridCache
 from Grid_3 import Grid
@@ -9,12 +10,12 @@ from Util import Util
 
 
 class UtilityCalculator:
-    def compute_utility(self, grid: Grid) -> float:
+    def compute_utility(self, grid: FastGrid) -> float:
         pass
 
 
 class MaxTileCalculator:
-    def compute_utility(self, grid: Grid) -> float:
+    def compute_utility(self, grid: FastGrid) -> float:
         return grid.getMaxTile()
 
 
@@ -29,7 +30,7 @@ class CompositeUtilityCalculator(UtilityCalculator):
         self.monotonicity_calculator = MonotonicityCalculator()
         self.max_tile_calculator = MaxTileCalculator()
 
-    def compute_utility(self, grid: Grid) -> float:
+    def compute_utility(self, grid: FastGrid) -> float:
         if self.score_cache.contains_grid(grid):
             return self.score_cache[grid]
         r = 0.0
@@ -51,8 +52,8 @@ class FreeSpaceCalculator(UtilityCalculator):
     def __init__(self, weight=1.0):
         self.weight = weight
 
-    def compute_utility(self, grid: Grid):
-        space = len(grid.getAvailableCells())
+    def compute_utility(self, grid: FastGrid):
+        space = len(grid.get_available_cells())
         space_ = (1.0 / space ** 0.9) if space > 0.0 else 1.0
         result = self.weight * min(1,
                                    1 - space_)  # this figure grows geometrically as space dwindles
@@ -61,16 +62,16 @@ class FreeSpaceCalculator(UtilityCalculator):
 
 
 class RoughnessCalculator(UtilityCalculator):
-    def compute_utility(self, grid: Grid):
+    def compute_utility(self, g: FastGrid):
         (less, more, eq) = (0, 1, 2)
         sign = None
         changed_signs = 0
-        for row in grid.map:
-            for x in range(0, 3):
+        for y in range(3):
+            for x in range(3):
                 # first classify the sign of the two nums being considered
-                if row[x] < row[x + 1]:
+                if g[y, x] < g[y, x + 1]:
                     sign_new = less  # where False means we were on less
-                elif row[x] == row[x + 1]:
+                elif g[y, x] == g[y, x + 1]:
                     sign_new = eq
                 else:
                     sign_new = more
@@ -143,7 +144,7 @@ This needs to be no more than 0.09 s i.e. a 100 fold improvement is required to 
 
     """
 
-    def compute_utility(self, grid: Grid):
+    def compute_utility(self, grid: FastGrid):
         a = Util.grid_to_array(grid)
         totals = array.array('i', [0, 0, 0, 0])
 
@@ -184,7 +185,7 @@ This needs to be no more than 0.09 s i.e. a 100 fold improvement is required to 
                 neighbour += 1
         return max(totals[0], totals[1]) + max(totals[2], totals[3])
 
-    def compute_utility_original(self, grid: Grid):
+    def compute_utility_original(self, grid: FastGrid):
         def not_zero(g: Grid, x, y):
             return g.getCellValue((x, y)) != 0.0
 
@@ -235,7 +236,7 @@ This needs to be no more than 0.09 s i.e. a 100 fold improvement is required to 
 class ClusteringCalculator(UtilityCalculator):
     # https://raw.githubusercontent.com/datumbox/Game-2048-AI-Solver/master/src/com/datumbox/opensource/ai/AIsolver.java
 
-    def compute_utility(self, grid: Grid) -> float:
+    def compute_utility(self, grid: FastGrid) -> float:
         clusteringScore = 0
         neighbors = [-1, 0, 1]
         for i in range(grid.size):

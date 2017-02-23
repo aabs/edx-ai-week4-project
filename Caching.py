@@ -1,6 +1,7 @@
 import itertools
 from collections import namedtuple
 
+import FastGrid
 from Util import Util
 from Grid_3 import Grid
 from SafeDict import SafeDict
@@ -27,16 +28,16 @@ class Cache:
 
 
 class GridCache(Cache):
-    def contains_grid(self, g: Grid) -> bool:
+    def contains_grid(self, g: FastGrid) -> bool:
         k = Util.compute_grid_hashcode(g)
         if self.cache[k] is not None:
             return True
         return False
 
-    def __getitem__(self, g: Grid):
+    def __getitem__(self, g: FastGrid):
         k = Util.compute_grid_hashcode(g)
         return self.cache[k]
 
-    def __setitem__(self, g: Grid, value):
+    def __setitem__(self, g: FastGrid, value):
         k = Util.compute_grid_hashcode(g)
         self.cache[k] = value

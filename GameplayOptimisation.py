@@ -1,5 +1,4 @@
 import sys
-import unittest
 
 from ABTestingBase import ABTestingBase
 from CaptureOutput import CaptureOutput
@@ -45,11 +44,11 @@ class GameplayTests(ABTestingBase):
         self.display_results(sorted_results)
 
     def run_solution(self, solution: list) -> int:
-        self.SuppressOutput()
+        self.suppress_output()
         sut = GameBuilder().build()
         sut.playerAI.set_weights(solution[0], solution[1], solution[2], solution[3])
         sut.start()
-        self.AllowOutput()
+        self.allow_output()
         return sut.grid.getMaxTile()
 
     def display_results(self, rs:list):
@@ -59,8 +58,3 @@ class GameplayTests(ABTestingBase):
     def display_result(self, r):
         print("%f:\t%s"%(r[0], r[1]))
 
-    def SuppressOutput(self):
-        sys.stdout = CaptureOutput()
-
-    def AllowOutput(self):
-        sys.stdout = sys.__stdout__

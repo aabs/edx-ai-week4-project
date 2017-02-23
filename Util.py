@@ -4,6 +4,7 @@ import itertools
 
 import math
 
+import FastGrid
 from Grid_3 import Grid
 
 common_logs = {0: 0, 2: 1, 4: 2, 8: 3, 16: 4, 32: 5, 64: 6, 128: 7, 256: 8, 512: 9, 1024: 10, 2048: 11,
@@ -16,9 +17,9 @@ primes = array.array('i', [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 4
 
 class Util:
     @staticmethod
-    def compute_grid_hashcode(g: Grid):
-        if getattr(g, 'hash_code', None):
-            return g.hash_code
+    def compute_grid_hashcode(g: FastGrid):
+        if g.hashcode is not None:
+            return g.hashcode
         hashcode = 0
         i = 0
         a = Util.grid_to_array(g)
@@ -26,8 +27,7 @@ class Util:
         while i < la:
             hashcode += a[i] * primes[i]
             i += 1
-        g.hash_code = lambda: None
-        setattr(g, 'hash_code', hashcode)
+        g.hashcode = hashcode
         return hashcode
 
 
@@ -37,7 +37,11 @@ class Util:
         return x[0] + x[1] + x[2] + x[3]
 
     @staticmethod
-    def grid_to_array(g: Grid):
+    def grid_to_array(g: FastGrid):
+        return array.array('i', g.board)  # consider just passing the underlying board???
+
+    @staticmethod
+    def slowgrid_to_array(g: Grid):
         return array.array('i', Util.grid_to_list(g))
 
     @staticmethod
@@ -86,3 +90,10 @@ class Util:
 
     # def dot_product(self, grid):
     #     return sum([a * b for a, b in zip(self.kernel, self.grid_to_list(grid.map))])
+
+    @staticmethod
+    def any(fn, xs):
+        result = False
+        for x in xs:
+            result = result or fn(x)
+        return result
