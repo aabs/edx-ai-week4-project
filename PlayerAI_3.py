@@ -29,8 +29,8 @@ class PlayerAI(BaseAI):
         self.deadline = None  # used to set a timeout on the exploration of possible moves
         self.max_depth_reached_so_far = 0
         self.moves = []
-        self.util_engine = CompositeUtilityCalculator(AlgorithmWeights(free_space_weight=4.0
-                                                                  , monotonicity_weight=0.5
+        self.util_engine = CompositeUtilityCalculator(AlgorithmWeights(free_space_weight=1.0
+                                                                  , monotonicity_weight=1.5
                                                                   , roughness_weight=1.0
                                                                   , max_tile_weight=1.0))
         # self.kernel = [[10, 8, 7, 6.5], [.5, .7, 1, 3], [-.5, -1.5, -1.8, -2], [-3.8, -3.7, -3.5, -3]]
