@@ -1,12 +1,20 @@
 import sys
 import unittest
 
+from ABTestingBase import ABTestingBase
 from CaptureOutput import CaptureOutput
 from Displayer_3 import Displayer
 from GameBuilder import GameBuilder
 
 
-class GameplayTests(unittest.TestCase):
+class GameplayTests(ABTestingBase):
+    def test_profile_game(self):
+        sut = GameBuilder().with_displayer(Displayer()).build()
+        self.start_profiling()
+        sut.start()
+        self.stop_profiling()
+        self.display_profiling_summary('cumtime')
+
     def test_can_run_game(self):
         sut = GameBuilder().with_displayer(Displayer()).build()
         sut.start()

@@ -1,13 +1,13 @@
 import cProfile
-import unittest
 
+from ABTestingBase import ABTestingBase
 from Grid_3 import Grid
 from PlayerAI_3 import PlayerAI
 
 directions = [UP, DOWN, LEFT, RIGHT] = range(4)
 
 
-class Player3Tests(unittest.TestCase):
+class Player3Tests(ABTestingBase):
     def test_can_create_player_a_i(self):
         sut = PlayerAI()
         self.assertIsNotNone(sut)
@@ -56,48 +56,6 @@ class Player3Tests(unittest.TestCase):
         sut = self.create_player()
         a1 = sut.calculate_smoothness(g1)
         self.assertEqual(a1, 0)
-
-    def create_player(self) -> PlayerAI:
-        return PlayerAI()
-
-    def create_empty_grid(self) -> Grid:
-        return self.create_grid(0)
-
-    def create_smooth_grid(self) -> Grid:
-        return self.create_grid(2)
-
-    def create_grid(self, val) -> Grid:
-        sut = Grid()
-        s = 4
-        for x in range(s):
-            for y in range(s):
-                sut.setCellValue((x, y), val)
-        return sut
-
-    def create_grid_from(self, val) -> Grid:
-        sut = Grid()
-        for row in range(4):
-            for col in range(4):
-                sut.setCellValue((row, col), val[row][col])
-        return sut
-
-    def create_anti_monotonic_grid(self) -> Grid:
-        sut = Grid()
-        s = 4
-        for x in range(s):
-            for y in range(s):
-                v = pow(2, ((s - 1 - x) + (s - 1 - y)))
-                sut.setCellValue((x, y), v if v > 1 else 0)
-        return sut
-
-    def create_monotonic_grid(self) -> Grid:
-        sut = Grid()
-        s = 4
-        for x in range(s):
-            for y in range(s):
-                v = pow(2, (x + y))
-                sut.setCellValue((x, y), v if v > 1 else 0)
-        return sut
 
     def test_pairs(self):
         g = self.create_grid(2)
@@ -221,10 +179,7 @@ UP would have been:
         self.assertAlmostEqual(sut[0] + sut[15], 0.0, 4)
 
     def test_can_compute_score(self):
-
         g1 = self.create_smooth_grid()
         sut = self.create_player()
         a1 = sut.utility4(g1)
         self.assertEqual(a1, 1.0)
-
-
