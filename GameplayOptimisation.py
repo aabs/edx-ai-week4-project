@@ -13,6 +13,7 @@ class GameplayTests(ABTestingBase):
         sut.start()
         self.stop_profiling()
         self.display_profiling_summary('tottime')
+        self.display_profiling_summary('ncalls')
 
     def test_can_run_game(self):
         sut = GameBuilder().with_displayer(Displayer()).build()

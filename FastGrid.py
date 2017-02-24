@@ -1,6 +1,7 @@
+import os
 from array import array
 
-from Util import Util
+from Util import Util, primes
 
 directionVectors = (UP_VEC, DOWN_VEC, LEFT_VEC, RIGHT_VEC) = ((-1, 0), (1, 0), (0, -1), (0, 1))
 vecIndex = [UP, DOWN, LEFT, RIGHT] = range(4)
@@ -9,7 +10,7 @@ vecIndex = [UP, DOWN, LEFT, RIGHT] = range(4)
 class FastGrid:
     def __init__(self, g=None):
         self.board = Util.slowgrid_to_array(g) if g is not None else None
-        self.hashcode = None
+        self.__hashcode = None
         self.score = None
         self.size = g.size if g is not None else 4
 
@@ -39,6 +40,20 @@ class FastGrid:
 
     def setCellValue(self, pos, value):
         self[pos] = value
+
+    @property
+    def hashcode(self):  # consider zobrist hashing?
+        if self.__hashcode:
+            return self.__hashcode
+        hashcode = 0
+        i = 0
+        a = self.board
+        la = len(a)
+        while i < la:
+            hashcode += a[i] * primes[i]
+            i += 1
+        self.__hashcode = hashcode
+        return hashcode
 
     @property
     def moves(self):

@@ -29,15 +29,12 @@ class Cache:
 
 class GridCache(Cache):
     def contains_grid(self, g: FastGrid) -> bool:
-        k = Util.compute_grid_hashcode(g)
-        if self.cache[k] is not None:
+        if self.cache[g.hashcode] is not None:
             return True
         return False
 
     def __getitem__(self, g: FastGrid):
-        k = Util.compute_grid_hashcode(g)
-        return self.cache[k]
+        return self.cache[g.hashcode]
 
     def __setitem__(self, g: FastGrid, value):
-        k = Util.compute_grid_hashcode(g)
-        self.cache[k] = value
+        self.cache[g.hashcode] = value
