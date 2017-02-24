@@ -1,6 +1,8 @@
 import sys
 import time
 
+import multiprocessing
+
 from AlgWeights import AlgorithmWeights
 from BaseAI_3 import BaseAI
 from FastGrid import FastGrid
@@ -27,9 +29,9 @@ class PlayerAI(BaseAI):
     def __init__(self):
         self.deadline = None  # used to set a timeout on the exploration of possible moves
         self.moves = []
-        self.util_engine = CompositeUtilityCalculator(AlgorithmWeights(free_space_weight=1.0
-                                                                       , monotonicity_weight=1.5
-                                                                       , roughness_weight=1.0
+        self.util_engine = CompositeUtilityCalculator(AlgorithmWeights(free_space_weight=3.0
+                                                                       , monotonicity_weight=1.0
+                                                                       , roughness_weight=0.0
                                                                        , max_tile_weight=1.0))
         # self.kernel = [[10, 8, 7, 6.5], [.5, .7, 1, 3], [-.5, -1.5, -1.8, -2], [-3.8, -3.7, -3.5, -3]]
         # self.kernel = [math.exp(x) for x in self.kernel]
@@ -54,13 +56,33 @@ class PlayerAI(BaseAI):
         grid = FastGrid(slow_grid)
         self.deadline = time.perf_counter() + deadline_offset
         choice = None
-        for move in grid.moves:
-            ok, child = grid.move(move)
-            score = self.alphabeta_search((child, move), minus_infinity, plus_infinity, True, max_depth_allowed)
-            if choice is None or score > choice[0]:
-                choice = (score, move)
+
+        result_queue = multiprocessing.Queue()
+        args=[]
+        for m in grid.moves:
+            s, g = grid.move(m)
+            assert s, "moves must be valid"
+            args.append((g, m, result_queue))
+        jobs = [multiprocessing.Process(target=self.start_ab_search, group=None, args=mc) for mc in args]
+        for job in jobs: job.start()
+        for job in jobs: job.join()
+        results = [result_queue.get() for mc in args]
+
+        for r in results:
+            move, score = r
+
+            if choice is None or score > choice[1]:
+                choice = r
         self.moves.append(choice)
-        return choice[1]
+        return choice[0]
+
+    def start_ab_search(self, grid: FastGrid, move, result_queue):
+        score = self.alphabeta_search((grid, move),
+                                      minus_infinity,
+                                      plus_infinity,
+                                      True,
+                                      max_depth_allowed)
+        result_queue.put((move, score))
 
     def alphabeta_search(self, gm, alpha, beta, is_maximiser, depth):
         (grid, originating_move) = gm
@@ -106,7 +128,7 @@ class PlayerAI(BaseAI):
                     return result
             return result
 
-    def terminal_test(self, grid):
+    def terminal_test(self, grid: FastGrid):
         return not grid.canMove()
 
     def getMaximizerMoves(self, grid):
