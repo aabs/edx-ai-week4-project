@@ -20,6 +20,9 @@ class FreeSpaceCalculator(UtilityCalculator):
         self.weight = weight
 
     def compute_utility(self, grid: FastGrid):
+        return self.compute_utility_with_inverse(grid)
+
+    def compute_utility_without_inverse(self, grid):
         space = len(grid.get_available_cells())
         return space * space
 
@@ -57,38 +60,38 @@ class RoughnessCalculator(UtilityCalculator):
                 sign = sign_new
         return changed_signs
 
-    # def roughness_grid(self, grid, width, height):
-    #     """Assumes something constructed like this:
-    #     M = [[0,1,2], [3,4,5], [6,7,8]]
-    #     that can be indexed like this M[0][2]"""
-    #
-    #     r = [[0.0] * width for _ in range(height)]
-    #
-    #     for y in range(0, height):
-    #         for x in range(0, width):
-    #             sum = 0.0
-    #             cnt = 0.0
-    #             rxlo = max(0, x - 1)
-    #             rxhi = min(width - 1, x + 1)
-    #             rylo = max(0, y - 1)
-    #             ryhi = min(height - 1, y + 1)
-    #             v = math.log(grid[x][y], 2) if grid[x][y] != 0.0 else 0.0
-    #             for i in range(rylo, ryhi + 1):
-    #                 for j in range(rxlo, rxhi + 1):
-    #                     if i != y or j != x:
-    #                         n1 = math.log(grid[i][j], 2) if grid[i][j] != 0.0 else 0.0
-    #                         sum += abs(v - n1)
-    #                         cnt += 1.0
-    #             r[x][y] = sum / cnt if cnt > 0.0 else 0.0
-    #     return r
-    #
-    # def roughness(self, grid, width, height):
-    #     sum = 0.0
-    #     r = self.roughness_grid(grid, width, height)
-    #     for y in range(0, height):
-    #         for x in range(0, width):
-    #             sum += r[x][y]
-    #     return sum / (width * height)
+        # def roughness_grid(self, grid, width, height):
+        #     """Assumes something constructed like this:
+        #     M = [[0,1,2], [3,4,5], [6,7,8]]
+        #     that can be indexed like this M[0][2]"""
+        #
+        #     r = [[0.0] * width for _ in range(height)]
+        #
+        #     for y in range(0, height):
+        #         for x in range(0, width):
+        #             sum = 0.0
+        #             cnt = 0.0
+        #             rxlo = max(0, x - 1)
+        #             rxhi = min(width - 1, x + 1)
+        #             rylo = max(0, y - 1)
+        #             ryhi = min(height - 1, y + 1)
+        #             v = math.log(grid[x][y], 2) if grid[x][y] != 0.0 else 0.0
+        #             for i in range(rylo, ryhi + 1):
+        #                 for j in range(rxlo, rxhi + 1):
+        #                     if i != y or j != x:
+        #                         n1 = math.log(grid[i][j], 2) if grid[i][j] != 0.0 else 0.0
+        #                         sum += abs(v - n1)
+        #                         cnt += 1.0
+        #             r[x][y] = sum / cnt if cnt > 0.0 else 0.0
+        #     return r
+        #
+        # def roughness(self, grid, width, height):
+        #     sum = 0.0
+        #     r = self.roughness_grid(grid, width, height)
+        #     for y in range(0, height):
+        #         for x in range(0, width):
+        #             sum += r[x][y]
+        #     return sum / (width * height)
 
 
 class MonotonicityCalculator(UtilityCalculator):
@@ -234,3 +237,42 @@ class ClusteringCalculator(UtilityCalculator):
         return clusteringScore
 
 
+class Kernel2(UtilityCalculator):
+    """See https://codemyroad.wordpress.com/2014/05/14/2048-ai-the-intelligent-bot/"""
+
+    def __init__(self):
+        self.weight = array.array('f', [0.135759, 0.121925, 0.102812, 0.099937,
+                                        0.0997992, 0.0888405, 0.076711, 0.0724143,
+                                        0.060654, 0.0562579, 0.037116, 0.0161889,
+                                        0.0125498, 0.00992495, 0.00575871, 0.00335193])
+
+    def compute_utility(self, grid: FastGrid) -> float:
+        scores = [0.0] * 8
+
+        def fn(x, y):
+            return self.weight[(y * 4) + x]
+
+        for r in range(4):
+            for c in range(4):
+                scores[0] += grid[r, c] * fn(r, c)
+                scores[1] += grid[r, c] * fn(3 - c, r)
+                scores[2] += grid[r, c] * fn(3 - r, 3 - c)
+                scores[3] += grid[r, c] * fn(c, 3 - r)
+
+                scores[4] += grid[r, c] * fn(c, r)
+                scores[5] += grid[r, c] * fn(r, 3 - c)
+                scores[6] += grid[r, c] * fn(3 - c, 3 - r)
+                scores[7] += grid[r, c] * fn(3 - r, c)
+        return max(scores)
+
+
+class MisplacedMaxTilePenalty(UtilityCalculator):
+    def compute_utility(self, b: FastGrid) -> float:
+        m = b.getMaxTile()
+        return -1 * math.pow((b[3, 0] != m) * abs(b[3, 0] - m), 2)
+
+
+class FastSnakeCalculator(UtilityCalculator):
+    def compute_utility(self, g: FastGrid) -> float:
+        b = g.board[0:4] + array.array('i', reversed(g.board[4:8])) + g.board[8:12] + array.array('i', reversed(g.board[12:16]))
+        return sum(x/10**n for n, x in enumerate(b))

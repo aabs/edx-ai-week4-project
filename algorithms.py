@@ -1,6 +1,8 @@
 # a file to simply implement some key algorithms in a procedural fashion
 from collections import namedtuple
 
+import logging
+
 
 class SolutionContext:
     def __init__(self
@@ -28,20 +30,16 @@ class Solution:
         self.move = move
 
 
-class ScoreOutcome:
-    def __init__(self, move, score):
-        self.score = score
-        self.move = move
-
-
 MinMove = namedtuple('MinMove', ['is_max', 'x', 'y', 'tile', 'prob'])
 MaxMove = namedtuple('MaxMove', ['is_max', 'direction'])
 
+log = logging.getLogger('app' + __name__)
 
 def minimax(context: SolutionContext, solution: Solution):
+    log.info("minimax")
     if context.fn_terminate(context, solution):
         return context.fn_fitness(context, solution)
-    moves = solution.board.moves(not solution.is_max)
+    moves = solution.board.get_moves(not solution.is_max)
 
     if solution.is_max:
         results = []
@@ -54,8 +52,9 @@ def minimax(context: SolutionContext, solution: Solution):
         results = []
         for m in moves:
             new_context, new_solution = creat_call_vars(m, context, solution)
-            results.append(minimax(context=new_context,
-                                   solution=new_solution))
+            r = minimax(context=new_context, solution=new_solution)
+            r2 = r * new_solution.move.prob
+            results.append(r2)
         return min(results)
 
 

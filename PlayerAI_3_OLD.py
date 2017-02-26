@@ -1,9 +1,8 @@
 import multiprocessing
 import time
 
-from AlgWeights import AlgorithmWeights
 from BaseAI_3 import BaseAI
-from CompositeCalculation import CompositeUtilityCalculator
+from CompositeCalculation import CompositeUtilityCalculator, AlgorithmWeights
 from FastGrid import FastGrid
 from Grid_3 import Grid
 from PlayerAI_3 import log, deadline_offset, minus_infinity, plus_infinity, max_depth_allowed

@@ -87,7 +87,7 @@ class FastGrid:
     # Return All Available Moves
     def get_available_moves(self):
         result = []
-        for i in [UP, LEFT, RIGHT, DOWN]:
+        for i in [LEFT, RIGHT, UP, DOWN]:
             if self.canMoveWith(directionVectors[i]):
                 result.append(i)
         return result
