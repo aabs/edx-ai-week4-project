@@ -1,12 +1,8 @@
+import array
 import math
 
-import array
-
 import FastGrid
-from AlgWeights import AlgorithmWeights
-from Caching import GridCache
 from Grid_3 import Grid
-from Util import Util
 
 
 class UtilityCalculator:
@@ -19,40 +15,15 @@ class MaxTileCalculator:
         return grid.getMaxTile()
 
 
-class CompositeUtilityCalculator(UtilityCalculator):
-    def __init__(self, weights: AlgorithmWeights = None):
-        self.weights = weights
-        if self.weights is None:
-            self.weights = AlgorithmWeights()
-        self.score_cache = GridCache()
-        self.free_space_calculator = FreeSpaceCalculator()
-        self.roughness_calculator = RoughnessCalculator()
-        self.monotonicity_calculator = MonotonicityCalculator()
-        self.max_tile_calculator = MaxTileCalculator()
-
-    def compute_utility(self, grid: FastGrid) -> float:
-        if self.score_cache.contains_grid(grid):
-            return self.score_cache[grid]
-        r = 0.0
-
-        if self.weights.max_tile_weight != 0.0:
-            max_tile = self.max_tile_calculator.compute_utility(grid)
-            r += max_tile * self.weights.max_tile_weight
-        if self.weights.monotonicity_weight != 0.0:
-            r += self.weights.monotonicity_weight * self.monotonicity_calculator.compute_utility(grid)
-        if self.weights.roughness_weight != 0.0:
-            r += self.weights.roughness_weight * self.roughness_calculator.compute_utility(grid)
-        if self.weights.free_space_weight != 0.0:
-            r *= self.weights.free_space_weight * self.free_space_calculator.compute_utility(grid)
-        self.score_cache[grid] = r
-        return r
-
-
 class FreeSpaceCalculator(UtilityCalculator):
     def __init__(self, weight=1.0):
         self.weight = weight
 
     def compute_utility(self, grid: FastGrid):
+        space = len(grid.get_available_cells())
+        return space * space
+
+    def compute_utility_with_inverse(self, grid: FastGrid):
         space = len(grid.get_available_cells())
         space_ = (1.0 / space ** 0.9) if space > 0.0 else 1.0
         result = self.weight * min(1,
@@ -85,38 +56,39 @@ class RoughnessCalculator(UtilityCalculator):
                     changed_signs += 1
                 sign = sign_new
         return changed_signs
-        # def roughness_grid(self, grid, width, height):
-        #     """Assumes something constructed like this:
-        #     M = [[0,1,2], [3,4,5], [6,7,8]]
-        #     that can be indexed like this M[0][2]"""
-        #
-        #     r = [[0.0] * width for _ in range(height)]
-        #
-        #     for y in range(0, height):
-        #         for x in range(0, width):
-        #             sum = 0.0
-        #             cnt = 0.0
-        #             rxlo = max(0, x - 1)
-        #             rxhi = min(width - 1, x + 1)
-        #             rylo = max(0, y - 1)
-        #             ryhi = min(height - 1, y + 1)
-        #             v = math.log(grid[x][y], 2) if grid[x][y] != 0.0 else 0.0
-        #             for i in range(rylo, ryhi + 1):
-        #                 for j in range(rxlo, rxhi + 1):
-        #                     if i != y or j != x:
-        #                         n1 = math.log(grid[i][j], 2) if grid[i][j] != 0.0 else 0.0
-        #                         sum += abs(v - n1)
-        #                         cnt += 1.0
-        #             r[x][y] = sum / cnt if cnt > 0.0 else 0.0
-        #     return r
-        #
-        # def roughness(self, grid, width, height):
-        #     sum = 0.0
-        #     r = self.roughness_grid(grid, width, height)
-        #     for y in range(0, height):
-        #         for x in range(0, width):
-        #             sum += r[x][y]
-        #     return sum / (width * height)
+
+    # def roughness_grid(self, grid, width, height):
+    #     """Assumes something constructed like this:
+    #     M = [[0,1,2], [3,4,5], [6,7,8]]
+    #     that can be indexed like this M[0][2]"""
+    #
+    #     r = [[0.0] * width for _ in range(height)]
+    #
+    #     for y in range(0, height):
+    #         for x in range(0, width):
+    #             sum = 0.0
+    #             cnt = 0.0
+    #             rxlo = max(0, x - 1)
+    #             rxhi = min(width - 1, x + 1)
+    #             rylo = max(0, y - 1)
+    #             ryhi = min(height - 1, y + 1)
+    #             v = math.log(grid[x][y], 2) if grid[x][y] != 0.0 else 0.0
+    #             for i in range(rylo, ryhi + 1):
+    #                 for j in range(rxlo, rxhi + 1):
+    #                     if i != y or j != x:
+    #                         n1 = math.log(grid[i][j], 2) if grid[i][j] != 0.0 else 0.0
+    #                         sum += abs(v - n1)
+    #                         cnt += 1.0
+    #             r[x][y] = sum / cnt if cnt > 0.0 else 0.0
+    #     return r
+    #
+    # def roughness(self, grid, width, height):
+    #     sum = 0.0
+    #     r = self.roughness_grid(grid, width, height)
+    #     for y in range(0, height):
+    #         for x in range(0, width):
+    #             sum += r[x][y]
+    #     return sum / (width * height)
 
 
 class MonotonicityCalculator(UtilityCalculator):
@@ -145,7 +117,7 @@ This needs to be no more than 0.09 s i.e. a 100 fold improvement is required to 
     """
 
     def compute_utility(self, grid: FastGrid):
-        a = Util.grid_to_array(grid)
+        a = grid.board
         totals = array.array('i', [0, 0, 0, 0])
 
         # // up/down direction
@@ -159,9 +131,9 @@ This needs to be no more than 0.09 s i.e. a 100 fold improvement is required to 
                     neighbour -= 1
                 current_value = a[(current * 4) + x]  # get_val(a, x, current)
                 next_value = a[(neighbour * 4) + x]  # get_val(a, x, neighbour)
-                if current_value > next_value:
+                if current_value < next_value:
                     totals[0] += next_value - current_value
-                elif next_value > current_value:
+                elif next_value < current_value:
                     totals[1] += current_value - next_value
                 current = neighbour
                 neighbour += 1
@@ -177,9 +149,9 @@ This needs to be no more than 0.09 s i.e. a 100 fold improvement is required to 
                     neighbour -= 1
                 current_value = a[(y * 4) + current]  # get_val(a, current, y)
                 next_value = a[(y * 4) + neighbour]  # get_val(a, neighbour, y)
-                if current_value > next_value:
+                if current_value < next_value:
                     totals[2] += next_value - current_value
-                elif next_value > current_value:
+                elif next_value < current_value:
                     totals[3] += current_value - next_value
                 current = neighbour
                 neighbour += 1
@@ -236,12 +208,12 @@ This needs to be no more than 0.09 s i.e. a 100 fold improvement is required to 
 class ClusteringCalculator(UtilityCalculator):
     # https://raw.githubusercontent.com/datumbox/Game-2048-AI-Solver/master/src/com/datumbox/opensource/ai/AIsolver.java
 
-    def compute_utility(self, grid: FastGrid) -> float:
+    def compute_utility(self, g: FastGrid) -> float:
         clusteringScore = 0
         neighbors = [-1, 0, 1]
-        for i in range(grid.size):
-            for j in range(grid.size):
-                v = grid.map[i][j]
+        for i in range(g.size):
+            for j in range(g.size):
+                v = g[i, j]
                 if v == 0:
                     continue
                 clusteringScore -= v
@@ -249,14 +221,16 @@ class ClusteringCalculator(UtilityCalculator):
                 acc = 0
                 for k in neighbors:
                     x = i + k
-                    if x < 0 or x >= grid.size:
+                    if x < 0 or x >= g.size:
                         continue
                     for l in neighbors:
                         y = j + l
-                        if y < 0 or y >= grid.size:
+                        if y < 0 or y >= g.size:
                             continue
-                        if grid.map[x][y] > 0:
+                        if g[x, y] > 0:
                             numOfNeighbors += 1
-                            acc += abs(v - grid.map[x][y])
+                            acc += abs(v - g[x, y])
                 clusteringScore += acc / numOfNeighbors
         return clusteringScore
+
+

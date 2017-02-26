@@ -5,7 +5,9 @@ import random
 import math
 
 import sys
+from array import array
 
+from CaptureOutput import CaptureOutput
 from FastGrid import FastGrid
 from Grid_3 import Grid
 from PlayerAI_3 import PlayerAI
@@ -27,18 +29,15 @@ class ABTestingBase(unittest.TestCase):
         # sort_col = "ncalls"
         self.profiler.print_stats(sort=default_sort_order)
 
-    def create_empty_grid(self) -> Grid:
-        return self.create_grid(0)
+    def create_empty_fastgrid(self) -> FastGrid:
+        return self.create_fastgrid(0)
 
-    def create_smooth_grid(self) -> Grid:
-        return self.create_grid(2)
+    def create_smooth_grid(self) -> FastGrid:
+        return self.create_fastgrid(2)
 
-    def create_grid(self, val) -> Grid:
-        sut = Grid()
-        s = 4
-        for x in range(s):
-            for y in range(s):
-                sut.setCellValue((x, y), val)
+    def create_fastgrid(self, val) -> FastGrid:
+        sut = FastGrid()
+        sut.board = array('i', [val]*16)
         return sut
 
     def create_slowgrid_from(self, val) -> Grid:
@@ -48,40 +47,46 @@ class ABTestingBase(unittest.TestCase):
                 sut.setCellValue((row, col), val[row][col])
         return sut
 
-    def create_grid_from(self, newboard, size=4) -> FastGrid:
-        sut = FastGrid()
-        sut.board = newboard
+    def create_slowgrid_from_list(self, l, size=4) -> FastGrid:
+        sut = Grid()
+        sut.map = l
         sut.size = size
         return sut
 
-    def create_anti_monotonic_grid(self) -> Grid:
-        sut = Grid()
+    def create_fastgrid_from(self, newboard, size=4) -> FastGrid:
+        sut = FastGrid()
+        sut.board = array('i', newboard)
+        sut.size = size
+        return sut
+
+    def create_anti_monotonic_grid(self) -> FastGrid:
+        sut = FastGrid()
         s = 4
         for x in range(s):
             for y in range(s):
                 v = pow(2, ((s - 1 - x) + (s - 1 - y)))
-                sut.setCellValue((x, y), v if v > 1 else 0)
+                sut[x, y] = v if v > 1 else 0
         return sut
 
-    def create_monotonic_grid(self) -> Grid:
-        sut = Grid()
+    def create_monotonic_grid(self) -> FastGrid:
+        sut = FastGrid()
         s = 4
         for x in range(s):
             for y in range(s):
                 v = pow(2, (x + y))
-                sut.setCellValue((x, y), v if v > 1 else 0)
+                sut[x, y] = v if v > 1 else 0
         return sut
 
     def create_player(self) -> PlayerAI:
         return PlayerAI()
 
-    def create_random_grid(self) -> Grid:
-        r = Grid()
+    def create_random_grid(self) -> FastGrid:
+        r = FastGrid()
         tiles = [0, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
 
         for x in range(4):
             for y in range(4):
-                r.setCellValue((x, y), random.choice(tiles))
+                r[x, y] = random.choice(tiles)
         return r
 
     def suppress_output(self):

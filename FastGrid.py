@@ -1,6 +1,7 @@
 import os
 from array import array
 
+from Grid_3 import Grid
 from Util import Util, primes
 
 directionVectors = (UP_VEC, DOWN_VEC, LEFT_VEC, RIGHT_VEC) = ((-1, 0), (1, 0), (0, -1), (0, 1))
@@ -9,7 +10,7 @@ vecIndex = [UP, DOWN, LEFT, RIGHT] = range(4)
 
 class FastGrid:
     def __init__(self, g=None):
-        self.board = Util.slowgrid_to_array(g) if g is not None else None
+        self.board = Util.slowgrid_to_array(g) if g is not None else [0]*16
         self.__hashcode = None
         self.score = None
         self.size = g.size if g is not None else 4
@@ -34,15 +35,7 @@ class FastGrid:
             return None
         self.board[(y * self.size) + x] = v
 
-    # Insert a Tile in an Empty Cell
-    def insertTile(self, pos, value):
-        self[pos] = value
-
-    def setCellValue(self, pos, value):
-        self[pos] = value
-
-    @property
-    def hashcode(self):  # consider zobrist hashing?
+    def __hash__(self):
         if self.__hashcode:
             return self.__hashcode
         hashcode = 0
@@ -55,6 +48,18 @@ class FastGrid:
         self.__hashcode = hashcode
         return hashcode
 
+    def to_slowgrid(self):
+        g = Grid()
+        g.map = Util.array_to_2dlist(self.board)
+        return g
+
+    # Insert a Tile in an Empty Cell
+    def insertTile(self, pos, value):
+        self[pos] = value
+
+    def setCellValue(self, pos, value):
+        self[pos] = value
+
     @property
     def moves(self):
         return self.get_available_moves()
@@ -62,7 +67,7 @@ class FastGrid:
     # Return All Available Moves
     def get_available_moves(self):
         result = []
-        for i in vecIndex:
+        for i in [UP, LEFT, RIGHT, DOWN] :
             if self.canMoveWith(directionVectors[i]):
                 result.append(i)
         return result

@@ -4,7 +4,6 @@ import itertools
 
 import math
 
-import FastGrid
 from Grid_3 import Grid
 
 common_logs = {0: 0, 2: 1, 4: 2, 8: 3, 16: 4, 32: 5, 64: 6, 128: 7, 256: 8, 512: 9, 1024: 10, 2048: 11,
@@ -14,10 +13,11 @@ primes = array.array('i', [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 4
                            193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283,
                            293, 307, 311])
 
+directions = {0: 'Up', 1: 'Down', 2: 'Left', 3: 'Right'}
 
 class Util:
     @staticmethod
-    def compute_grid_hashcode(g: FastGrid):
+    def compute_grid_hashcode(g):
         if g.hashcode is not None:
             return g.hashcode
         hashcode = 0
@@ -32,24 +32,24 @@ class Util:
 
 
     @staticmethod
-    def grid_to_list(g: Grid):
+    def slowgrid_to_list(g: Grid):
         x = g.map
         return x[0] + x[1] + x[2] + x[3]
 
     @staticmethod
-    def grid_to_array(g: FastGrid):
+    def fastgrid_to_array(g):
         return array.array('i', g.board)  # consider just passing the underlying board???
 
     @staticmethod
     def slowgrid_to_array(g: Grid):
-        return array.array('i', Util.grid_to_list(g))
+        return array.array('i', Util.slowgrid_to_list(g))
 
     @staticmethod
-    def array_to_grid(a: array):
-        return Util.list_to_grid(a.tolist())
+    def array_to_2dlist(a: array):
+        return Util.list_to_2dlist(a.tolist())
 
     @staticmethod
-    def list_to_grid(l):
+    def list_to_2dlist(l):
         return [l[0:4], l[4:8], l[8:12], l[12:16]]
 
     @staticmethod
@@ -71,11 +71,13 @@ class Util:
     def compute_kernel(width=4, ramp_amplification: float = None, create_snake: bool = False) -> list:
         weight = ramp_amplification if ramp_amplification is not None else 1.0
         if create_snake:
-            r = [weight * x for x in range(16, -16, -2)]
-            tmp = Util.list_to_grid(r)
-            tmp[1] = list(reversed(tmp[1]))
-            tmp[3] = list(reversed(tmp[3]))
-            return Util.grid_to_list(tmp)
+            return [math.exp(x) for x in [10, 8, 7, 6.5, .5, .7, 1, 3, -.5, -1.5, -1.8, -2, -3.8, -3.7, -3.5, -3]]
+            # return [10, 8, 7, 6.5, .5, .7, 1, 3, -.5, -1.5, -1.8, -2, -3.8, -3.7, -3.5, -3]
+            # r = [weight * x for x in range(16, -16, -2)]
+            # tmp = Util.list_to_2dlist(r)
+            # tmp[1] = list(reversed(tmp[1]))
+            # tmp[3] = list(reversed(tmp[3]))
+            # return array.array('f', tmp[0]+tmp[1]+tmp[2]+tmp[3])
 
         else:
             r = [0.0] * (width * width)
@@ -88,8 +90,6 @@ class Util:
                     r[idx] = math.pow(row + col + 2, weight) - (total_range / 2) - min_val
             return r
 
-    # def dot_product(self, grid):
-    #     return sum([a * b for a, b in zip(self.kernel, self.grid_to_list(grid.map))])
 
     @staticmethod
     def any(fn, xs):

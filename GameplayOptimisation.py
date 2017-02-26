@@ -4,11 +4,12 @@ from ABTestingBase import ABTestingBase
 from CaptureOutput import CaptureOutput
 from Displayer_3 import Displayer
 from GameBuilder import GameBuilder
+from LogDisplayer import LogDisplayer, CompositeDisplayer
 
 
 class GameplayTests(ABTestingBase):
     def test_profile_game(self):
-        sut = GameBuilder().with_displayer(Displayer()).build()
+        sut = GameBuilder().with_displayer(CompositeDisplayer()).build()
         self.start_profiling()
         sut.start()
         self.stop_profiling()

@@ -10,11 +10,6 @@ class FastGridTests(ABTestingBase):
         x = FastGrid()
         self.assertIsNotNone(x)
 
-    def test_create_from_grid(self):
-        g = self.create_random_grid()
-        sut = FastGrid(g)
-        self.assertListEqual(sut.board.tolist(), Util.grid_to_list(g))
-
     def test_gives_acceptable_moves(self):
         sut = self.create_grid_from(array('i', [0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0]))
         self.assertEqual(sut[2, 1], 2, 'should have been a 2 at this position')

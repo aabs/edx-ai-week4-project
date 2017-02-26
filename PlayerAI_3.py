@@ -1,14 +1,13 @@
+import logging
+import multiprocessing
 import sys
 import time
 
-import multiprocessing
-
 from AlgWeights import AlgorithmWeights
 from BaseAI_3 import BaseAI
+from CompositeCalculation import CompositeUtilityCalculator
 from FastGrid import FastGrid
-from Grid_3 import Grid
-from Util import Util
-from UtilityCalculation import CompositeUtilityCalculator
+from Util import *
 
 deadline_offset = 0.1  # mandated solution timeout for exercise is .1 secs
 max_depth_allowed = 4  # how deep to search for solutions
@@ -17,48 +16,53 @@ max_depth_allowed = 4  # how deep to search for solutions
 plus_infinity = float(sys.maxsize)
 minus_infinity = -1.0 * plus_infinity
 
-
-# some resources
-# http://www.wikihow.com/Beat-2048#Step_by_Step_Strategy_Guide_sub
-# http://stackoverflow.com/questions/22342854/what-is-the-optimal-algorithm-for-the-game-2048
-
-
+logging.basicConfig(
+    filename="2048.log",
+    format="%(levelname)-10s %(asctime)s %(message)s",
+    level=logging.INFO
+)
+log = logging.getLogger('app' + __name__)
 
 
 class PlayerAI(BaseAI):
     def __init__(self):
         self.deadline = None  # used to set a timeout on the exploration of possible moves
         self.moves = []
+        # self.util_engine = KernelCalculator()
         self.util_engine = CompositeUtilityCalculator(AlgorithmWeights(free_space_weight=3.0
                                                                        , monotonicity_weight=1.0
                                                                        , roughness_weight=0.0
-                                                                       , max_tile_weight=1.0))
-        # self.kernel = [[10, 8, 7, 6.5], [.5, .7, 1, 3], [-.5, -1.5, -1.8, -2], [-3.8, -3.7, -3.5, -3]]
-        # self.kernel = [math.exp(x) for x in self.kernel]
-        self.kernel = Util.compute_kernel(create_snake=False, ramp_amplification=1.5)
+                                                                       , max_tile_weight=0.0
+                                                                       , kernel_weight=0.0
+                                                                       , clustering_weight=0.0))
 
-    def set_weights(self, space_weight=1.0
-                    , monotonicity_weight=3.0
-                    , roughness_weight=-3.0
-                    , max_tile_weight=1.0
-                    ):
-        self.util_engine.weights = AlgorithmWeights(space_weight
+    def set_weights(self, free_space_weight=0.0
+                    , monotonicity_weight=0.0
+                    , roughness_weight=0.0
+                    , max_tile_weight=0.0
+                    , kernel_weight=1.0
+                    , clustering_weight=1.0):
+        self.util_engine.weights = AlgorithmWeights(free_space_weight
                                                     , monotonicity_weight
                                                     , roughness_weight
-                                                    , max_tile_weight)
-        print("weights",
-              space_weight
-              , monotonicity_weight
-              , roughness_weight
-              , max_tile_weight)
+                                                    , max_tile_weight
+                                                    , kernel_weight
+                                                    , clustering_weight)
+        log.debug("weights", {
+            'free_space_weight': free_space_weight
+              , 'monotonicity_weight': monotonicity_weight
+              , 'roughness_weight': roughness_weight
+              , 'max_tile_weight': max_tile_weight
+              , 'kernel_weight': kernel_weight
+              , 'clustering_weight': clustering_weight})
 
     def getMove(self, slow_grid: Grid):
+        log.debug("getting moves")
         grid = FastGrid(slow_grid)
         self.deadline = time.perf_counter() + deadline_offset
-        choice = None
 
         result_queue = multiprocessing.Queue()
-        args=[]
+        args = []
         for m in grid.moves:
             s, g = grid.move(m)
             assert s, "moves must be valid"
@@ -67,13 +71,9 @@ class PlayerAI(BaseAI):
         for job in jobs: job.start()
         for job in jobs: job.join()
         results = [result_queue.get() for mc in args]
-
-        for r in results:
-            move, score = r
-
-            if choice is None or score > choice[1]:
-                choice = r
-        self.moves.append(choice)
+        log.debug("results: %s",results)
+        choice = max(results, key=lambda x: x[1])
+        log.info("choice: %s, %0.3f", directions[choice[0]], choice[1])
         return choice[0]
 
     def start_ab_search(self, grid: FastGrid, move, result_queue):
@@ -84,23 +84,37 @@ class PlayerAI(BaseAI):
                                       max_depth_allowed)
         result_queue.put((move, score))
 
-    def alphabeta_search(self, gm, alpha, beta, is_maximiser, depth):
-        (grid, originating_move) = gm
+    def alphabeta_search(self, gm, alpha, beta, is_maximiser, depth, path=[]):
+        (grid, _originating_move) = gm
+        originating_move = _originating_move if _originating_move is not None else -1
+        if depth == 0: #or time.perf_counter() >= self.deadline:
+            score = self.util_engine.compute_utility(grid)
+            log.debug("Leaf: %d %d %f", hash(grid), originating_move, score)
+            return score
 
-        if depth == 0 or self.terminal_test(grid) or time.perf_counter() >= self.deadline:
-            return self.util_engine.compute_utility(grid)
+        if self.terminal_test(grid): #or time.perf_counter() >= self.deadline:
+            score = self.util_engine.compute_utility(grid)
+            log.debug("Terminal: %d %d %f", hash(grid), originating_move, score)
+            return score
+
+        # if time.perf_counter() >= self.deadline:
+        #     score = self.util_engine.compute_utility(grid)
+        #     log.debug("Timeout: %d %d %f", hash(grid), originating_move, score)
+        #     return score
 
         if is_maximiser:
             result = minus_infinity
 
             for move in grid.moves:
+                subpath = path+[('max', move)]
                 ok, child_grid = grid.move(move)
                 assert ok, "move should have been valid"
                 s = self.alphabeta_search((child_grid, move),
                                           alpha,
                                           beta,
                                           False,
-                                          depth - 1)
+                                          depth - 1,
+                                          subpath)
                 # is this result better than anything I've seen on this node so far?
                 result = max(result, s)
                 # is this result better than anything I've seen on any node previously visited?
@@ -109,23 +123,26 @@ class PlayerAI(BaseAI):
                 # is this branch better than the worst that the minimiser can force me to?
                 if beta <= alpha:
                     # if yes, then we can expect the minimiser to avoid this branch on principle.
-                    return result
+                    log.debug("alpha cut: %s", subpath)
+                    break
             return result
         else:
             result = plus_infinity
             sub_moves = self.getMinimizerMoves(grid)
-
             for minmove in sub_moves:
+                subpath = path + [('min', minmove)]
                 (child_grid, prob) = minmove
                 s = self.alphabeta_search((child_grid, None),
                                           alpha,
                                           beta,
                                           True,
-                                          depth - 1)
+                                          depth - 1,
+                                          subpath)
                 result = min(result, s)
                 beta = min(beta, result)
                 if beta <= alpha:
-                    return result
+                    log.debug("beta cut: %s", subpath)
+                    break
             return result
 
     def terminal_test(self, grid: FastGrid):
@@ -145,7 +162,7 @@ class PlayerAI(BaseAI):
             for new_value in possible_new_tiles:
                 new_grid = grid.clone()
                 new_grid.setCellValue(cell, new_value)
-                new_grids.append((new_grid, 1.0))
+                new_grids.append((new_grid, 0.9 if new_value == 2 else 0.1))
         return new_grids
 
 
@@ -204,3 +221,7 @@ class PlayerAI(BaseAI):
         #     if self.weights.roughness_weight != 0.0:
         #         r += self.roughness_fast(grid) * self.weights.roughness_weight
         #     return r
+
+# some resources
+# http://www.wikihow.com/Beat-2048#Step_by_Step_Strategy_Guide_sub
+# http://stackoverflow.com/questions/22342854/what-is-the-optimal-algorithm-for-the-game-2048
