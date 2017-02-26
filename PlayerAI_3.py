@@ -18,13 +18,12 @@ minus_infinity = -1.0 * plus_infinity
 
 def init_logging():
     global log
-    log = logging.getLogger('app' + __name__)
+    log = logging.getLogger('PlayerAI')
     log.setLevel(logging.DEBUG)
     fh = RotatingFileHandler('am-2048.log', mode='a', maxBytes=10000000, backupCount=3)
     fh.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     fh.setFormatter(formatter)
-    log = logging.getLogger('app' + __name__)
     log.addHandler(fh)
 
 
@@ -36,7 +35,7 @@ class PlayerAI(BaseAI):
         self.fitness = CompositeUtilityCalculator()
 
     def invoke_minimax(self, ctx, soln, result_queue):
-        score = minimax(ctx, soln)
+        score = minimax_with_ab_pruning(ctx, soln)
         result_queue.put((soln.move, score))
 
     def getMove(self, slowgrid):
@@ -44,6 +43,8 @@ class PlayerAI(BaseAI):
         grid = FastGrid(slowgrid)
         ctx = SolutionContext(board=grid
                               , depth=0
+                              , alpha=-float("inf")
+                              , beta=float("inf")
                               , timeout=time.process_time() + 0.1
                               , previous_move=None
                               , fn_fitness=lambda c, s: self.fitness.compute_utility(s.board)*

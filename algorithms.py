@@ -7,11 +7,15 @@ import logging
 class SolutionContext:
     def __init__(self
                  , board=None
+                 , alpha=None
+                 , beta=None
                  , depth=None
                  , timeout=None
                  , previous_move=None
                  , fn_fitness=None
                  , fn_terminate=None):
+        self.beta = beta
+        self.alpha = alpha
         self.previous_move = previous_move
         self.board = board
         self.depth = depth
@@ -32,8 +36,6 @@ class Solution:
 
 MinMove = namedtuple('MinMove', ['is_max', 'x', 'y', 'tile', 'prob'])
 MaxMove = namedtuple('MaxMove', ['is_max', 'direction'])
-
-log = logging.getLogger('app' + __name__)
 
 def minimax(context: SolutionContext, solution: Solution):
     log.info("minimax")
@@ -56,6 +58,46 @@ def minimax(context: SolutionContext, solution: Solution):
             r2 = r * new_solution.move.prob
             results.append(r2)
         return min(results)
+
+def minimax_with_ab_pruning(context: SolutionContext, solution: Solution):
+    log = logging.getLogger('PlayerAI')
+
+    if context.fn_terminate(context, solution):
+        return context.fn_fitness(context, solution)
+
+    moves = solution.board.get_moves(solution.is_max)
+
+    if solution.is_max:
+        best_result = -float("inf")
+        for m in moves:
+            new_context, new_solution = creat_call_vars(m, context, solution)
+            result = minimax_with_ab_pruning(context=new_context, solution=new_solution)
+            best_result = max(result, best_result)
+            context.alpha = max(best_result, context.alpha)
+            if context.alpha <= context.beta:
+                log.debug("alpha cut")
+                break
+        return best_result
+    else:
+        # PROBLEM:
+        #  - MIN is not playing to minimise the eventual score of MAX, it is generating tiles at random
+        #    The result from MIN should be the average score achieved given the move by MAX.
+        #    So, how is beta calculated to allow the alpha-beta pruning algorithm to be implemented?
+        # KNOWN:
+        #  - MIN should return the average across all possible moves
+        #  - MAX can maximise the alpha based on that
+        #  - MIN will be called on across several possible moves by MAX
+        # IDEA:
+        #  - Just set beta to the average?
+        #
+        acc = 0.0
+        for m in moves:
+            new_context, new_solution = creat_call_vars(m, context, solution)
+            r = minimax_with_ab_pruning(context=new_context, solution=new_solution)
+            acc += r * new_solution.move.prob
+        avg_score = acc / (len(moves) / 2)
+        context.beta = min(context.beta, avg_score)
+        return avg_score
 
 
 def creat_call_vars(move, context, solution):

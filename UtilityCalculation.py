@@ -269,7 +269,7 @@ class Kernel2(UtilityCalculator):
 class MisplacedMaxTilePenalty(UtilityCalculator):
     def compute_utility(self, b: FastGrid) -> float:
         m = b.getMaxTile()
-        return -1 * math.pow((b[3, 0] != m) * abs(b[3, 0] - m), 2)
+        return -1 * math.pow((b[0, 0] != m) * abs(b[0, 0] - m), 2)
 
 
 class FastSnakeCalculator(UtilityCalculator):
