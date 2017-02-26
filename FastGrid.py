@@ -3,7 +3,9 @@ from array import array
 
 from Grid_3 import Grid
 from Util import Util, primes
+from algorithms import MaxMove, MinMove
 
+# (row, col) format
 directionVectors = (UP_VEC, DOWN_VEC, LEFT_VEC, RIGHT_VEC) = ((-1, 0), (1, 0), (0, -1), (0, 1))
 vecIndex = [UP, DOWN, LEFT, RIGHT] = range(4)
 
@@ -64,10 +66,28 @@ class FastGrid:
     def moves(self):
         return self.get_available_moves()
 
+
+    def get_moves(self, is_max: bool):
+        if is_max:
+            return [MaxMove(is_max=is_max, direction=m) for m in self.get_available_moves()]
+        else:
+            cells = self.get_available_cells()
+            moves = []
+            # possible_new_tiles = [2, 4]
+            possible_new_tiles = [2, 4]
+            for cell in cells:
+                for tile in possible_new_tiles:
+                    moves.append(MinMove(is_max=is_max
+                                         , prob=0.9 if tile == 2 else 0.1
+                                         , tile=tile
+                                         , x=cell[1]
+                                         , y=cell[0]))
+            return moves
+
     # Return All Available Moves
     def get_available_moves(self):
         result = []
-        for i in [UP, LEFT, RIGHT, DOWN] :
+        for i in [UP, LEFT, RIGHT, DOWN]:
             if self.canMoveWith(directionVectors[i]):
                 result.append(i)
         return result
@@ -110,16 +130,15 @@ class FastGrid:
     # Move the Grid
     def move(self, dir: int):
         result = self.clone()
-        success = False
         if dir == UP:
-            success = result.moveUD(False)
+            result.moveUD(False)
         elif dir == DOWN:
-            success = result.moveUD(True)
+            result.moveUD(True)
         elif dir == LEFT:
-            success = result.moveLR(False)
+            result.moveLR(False)
         elif dir == RIGHT:
-            success = result.moveLR(True)
-        return success, result
+            result.moveLR(True)
+        return result
 
     # Move Up or Down
     def moveUD(self, down):

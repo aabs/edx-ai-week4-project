@@ -1,7 +1,7 @@
 class AlgorithmWeights:
     def __init__(self, free_space_weight=2.0
-                 , monotonicity_weight=1.0
-                 , roughness_weight=-1.0
+                 , monotonicity_weight=0.0
+                 , roughness_weight=0.0
                  , kernel_weight=1.0
                  , clustering_weight=0.0
                  , max_tile_weight=0.0):
