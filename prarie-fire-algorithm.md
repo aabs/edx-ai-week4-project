@@ -57,6 +57,8 @@ would be only partially useful, but it could give a taste of the env
 around a cluster that might be useful as an indicator of whether
 merging the cluster in a certain direction was worthwhile
 
+Does the way the results are used change through the course of the game?
+
 # Prairie Fire Algorithm
 
 Objectives:

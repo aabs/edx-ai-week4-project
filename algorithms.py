@@ -159,12 +159,16 @@ def prairie_fire(g):
                     code -= 1
         # now gather the stats
         for c in range(-1, code - 1, -1):
-            count = 0
+            stats = {'count': 0, 'minx':1000, 'maxx': -1, 'miny':5, 'maxy': -1, 'adjacent_tiles': []}
             for x in range(0, 4):
                 for y in range(0, 4):
                     if B[x,y] == c:
-                        count += 1
+                        stats['count'] += 1
+                        stats['minx'] = min(stats['minx'], x)
+                        stats['maxx'] = max(stats['maxx'], x)
+                        stats['miny'] = min(stats['miny'], y)
+                        stats['maxy'] = max(stats['maxy'], y)
                         B[x,y] = 0
-            if count > 0:
-                result[t].append(count)
+            if stats['count'] > 0:
+                result[t].append(stats)
     return result
