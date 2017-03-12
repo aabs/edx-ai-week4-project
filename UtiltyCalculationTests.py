@@ -18,7 +18,7 @@ class UtilityCalculationTests(ABTestingBase):
 
     def test_profile_composite_calculator(self):
         limit = 100000
-        gs = [self.create_random_grid() for _ in range(limit)]
+        gs = [self.create_random_fastgrid() for _ in range(limit)]
         self.start_profiling()
         sut = CompositeUtilityCalculator()
         for g in gs:
@@ -28,7 +28,7 @@ class UtilityCalculationTests(ABTestingBase):
 
     def test_profile_monotonicity_calculator(self):
         limit = 100000
-        gs = [self.create_random_grid() for _ in range(limit)]
+        gs = [self.create_random_fastgrid() for _ in range(limit)]
         self.start_profiling()
         sut = MonotonicityCalculator()
         for g in gs:
@@ -38,7 +38,7 @@ class UtilityCalculationTests(ABTestingBase):
 
     def test_profile_roughness_calculator(self):
         limit = 100000
-        gs = [self.create_random_grid() for _ in range(limit)]
+        gs = [self.create_random_fastgrid() for _ in range(limit)]
         self.start_profiling()
         sut = RoughnessCalculator()
         for g in gs:
@@ -48,7 +48,7 @@ class UtilityCalculationTests(ABTestingBase):
 
     def test_profile_free_space_calculator(self):
         limit = 100000
-        gs = [self.create_random_grid() for _ in range(limit)]
+        gs = [self.create_random_fastgrid() for _ in range(limit)]
         self.start_profiling()
         sut = FreeSpaceCalculator()
         for g in gs:
@@ -58,7 +58,7 @@ class UtilityCalculationTests(ABTestingBase):
 
     def test_profile_grid_to_array(self):
         limit = 100000
-        gs = [self.create_random_grid() for _ in range(limit)]
+        gs = [self.create_random_fastgrid() for _ in range(limit)]
         sut = Util.Util.grid_to_array
         self.start_profiling()
         for g in gs:
@@ -68,7 +68,7 @@ class UtilityCalculationTests(ABTestingBase):
 
     def test_profile_grid_to_list(self):
         limit = 100000
-        gs = [self.create_random_grid() for _ in range(limit)]
+        gs = [self.create_random_fastgrid() for _ in range(limit)]
         sut = Util.Util.grid_to_list
         self.start_profiling()
         for g in gs:
@@ -78,7 +78,10 @@ class UtilityCalculationTests(ABTestingBase):
 
     def test_snake_score_delivers_expected_result(self):
         sut = KernelCalculator()
-        better = self.get_snake_score(sut, [256, 32, 128, 2, 4, 16, 16, 64, 32, 4, 2, 2, 0, 0, 0, 0])
+        better = self.get_snake_score(sut, [256, 32, 128, 2,
+                                            4,   16, 16,  64,
+                                            32,  4,  2,   2,
+                                            0,   0,  0,   0])
         worse = self.get_snake_score(sut, [2, 0, 0, 0, 256, 32, 128, 2, 4, 16, 16, 64, 32, 4, 2, 2])
         self.assertGreater(better, worse)
 

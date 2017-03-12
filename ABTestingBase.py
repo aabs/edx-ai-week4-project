@@ -80,7 +80,7 @@ class ABTestingBase(unittest.TestCase):
     def create_player(self) -> PlayerAI:
         return PlayerAI()
 
-    def create_random_grid(self) -> FastGrid:
+    def create_random_fastgrid(self) -> FastGrid:
         r = FastGrid()
         tiles = [0, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
 

@@ -38,6 +38,7 @@ MinMove = namedtuple('MinMove', ['is_max', 'x', 'y', 'tile', 'prob'])
 MaxMove = namedtuple('MaxMove', ['is_max', 'direction'])
 
 def minimax(context: SolutionContext, solution: Solution):
+    log = logging.getLogger('PlayerAI')
     log.info("minimax")
     if context.fn_terminate(context, solution):
         return context.fn_fitness(context, solution)
@@ -46,14 +47,14 @@ def minimax(context: SolutionContext, solution: Solution):
     if solution.is_max:
         results = []
         for m in moves:
-            new_context, new_solution = creat_call_vars(m, context, solution)
+            new_context, new_solution = create_call_vars(m, context, solution)
             results.append(minimax(context=new_context,
                                    solution=new_solution))
         return max(results)
     else:
         results = []
         for m in moves:
-            new_context, new_solution = creat_call_vars(m, context, solution)
+            new_context, new_solution = create_call_vars(m, context, solution)
             r = minimax(context=new_context, solution=new_solution)
             r2 = r * new_solution.move.prob
             results.append(r2)
@@ -70,7 +71,7 @@ def minimax_with_ab_pruning(context: SolutionContext, solution: Solution):
     if solution.is_max:
         best_result = -float("inf")
         for m in moves:
-            new_context, new_solution = creat_call_vars(m, context, solution)
+            new_context, new_solution = create_call_vars(m, context, solution)
             result = minimax_with_ab_pruning(context=new_context, solution=new_solution)
             best_result = max(result, best_result)
             context.alpha = max(best_result, context.alpha)
@@ -90,17 +91,29 @@ def minimax_with_ab_pruning(context: SolutionContext, solution: Solution):
         # IDEA:
         #  - Just set beta to the average?
         #
-        acc = 0.0
+
+        best_result = float("inf")
         for m in moves:
-            new_context, new_solution = creat_call_vars(m, context, solution)
-            r = minimax_with_ab_pruning(context=new_context, solution=new_solution)
-            acc += r * new_solution.move.prob
-        avg_score = acc / (len(moves) / 2)
-        context.beta = min(context.beta, avg_score)
-        return avg_score
+            new_context, new_solution = create_call_vars(m, context, solution)
+            result = minimax_with_ab_pruning(context=new_context, solution=new_solution)
+            best_result = min(result, best_result)
+            context.beta = min(best_result, context.beta)
+            if context.alpha <= context.beta:
+                log.debug("beta cut")
+                break
+        return best_result
+
+        # acc = 0.0
+        # for m in moves:
+        #     new_context, new_solution = create_call_vars(m, context, solution)
+        #     r = minimax_with_ab_pruning(context=new_context, solution=new_solution)
+        #     acc += r * new_solution.move.prob
+        # avg_score = acc / (len(moves) / 2)
+        # context.beta = min(context.beta, avg_score)
+        # return avg_score
 
 
-def creat_call_vars(move, context, solution):
+def create_call_vars(move, context, solution):
     new_context = SolutionContext(board=solution.board,
                                   depth=context.depth + 1,
                                   timeout=context.timeout,
@@ -111,3 +124,47 @@ def creat_call_vars(move, context, solution):
                             board=new_context.board.move(move),
                             is_max=not solution.is_max)
     return new_context, new_solution
+
+def prairie_fire(g):
+    def set_fire_to(B, x, y, t, code):
+        # if off edge
+        if x < 0 or x > 3 or y < 0 or y > 3:
+            return False
+        # if done already
+        if B[x, y] == code:
+            return False
+        # if no match
+        if B[x, y] != t:
+            return False
+
+        B[x, y] = code
+        set_fire_to(B, x - 1, y, t, code)
+        set_fire_to(B, x + 1, y, t, code)
+        set_fire_to(B, x, y - 1, t, code)
+        set_fire_to(B, x, y + 1, t, code)
+        return True
+
+    B = g.clone()
+    result = dict()
+    tiles = [2 ** l if l > 0 else 0 for l in range(0, 17)]
+    tiles.insert(0, 0)  # add zero at the beginning, so we can also see how much space we have
+    for t in tiles:
+        result[t] = []
+    for t in tiles:
+        code = -1
+        for x in range(0, 4):
+            for y in range(0, 4):
+                lit = set_fire_to(B, x, y, t, code)
+                if lit:
+                    code -= 1
+        # now gather the stats
+        for c in range(-1, code - 1, -1):
+            count = 0
+            for x in range(0, 4):
+                for y in range(0, 4):
+                    if B[x,y] == c:
+                        count += 1
+                        B[x,y] = 0
+            if count > 0:
+                result[t].append(count)
+    return result

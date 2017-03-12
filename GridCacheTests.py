@@ -56,12 +56,12 @@ class GridCacheTests(ABTestingBase):
         limit = 10000
         sut = GridCache()
         while limit > 0:
-            g1 = self.create_random_grid()
-            g2 = self.create_random_grid()
+            g1 = self.create_random_fastgrid()
+            g2 = self.create_random_fastgrid()
             self.assertNotEqual(sut.compute_grid_hashcode(g1.map), sut.compute_grid_hashcode(g2.map))
             limit -= 1
     def test_cache_attach_hashcode_to_grid(self):
-        g1 = self.create_random_grid()
+        g1 = self.create_random_fastgrid()
         hc1 = getattr(g1, 'hash_code', None)
         self.assertIsNone(hc1)
         hc_tmp = Util.compute_grid_hashcode(g1)

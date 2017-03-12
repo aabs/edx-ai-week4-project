@@ -1,0 +1,77 @@
+# Utility Calculation
+
+## PROBLEM
+- Utility calculation is not identifying bad moves that have far reaching negative consequences
+
+## KNOWN
+- The systems is able to cluster high value tiles in the top corner, as needed
+- the system occasionally is left with no option but to play a DOWN move
+- DOWN moves stand a almost certain chance of displacing something that will derail the game leading to:
+    - reduction in space
+    - mismatching of adjacent tiles
+    - no smooth path for merging of tiles
+- The result of too many destructive moves is a board that has a kind of checkerboard pattern with alternating
+    low and high value tiles offset by one position:
+    2   64  2   128
+    64  2   64  32
+    32  32  2   16
+    0   0   0   0
+    See how the 2s cannot be merged with each other, and prevent the merger of like tiles elsewhere.
+    this kind of board is poison, and _always_ leads to failure.
+
+
+## QUESTIONS
+- what alternate ways are there to assess the quality of a board position?
+- Is it possible to judge a board solely based on small-scale parallel and _local_ utility tests?
+    - e.g. [2, 2] is possible to judge on its own merits - it can be merged horizontally.
+- How do you detect a checkerboard pattern?
+- is there a convolution kernel approach to identifying checkerboard patterns?
+    consider the above board represented as their log_2(x) values:
+    1   7   1   8
+    7   1   7   6
+    5   5   1   4
+    0   0   0   0
+    The relative difference of these board positions represents their 'mergability'. That is, how many merges would
+    be required to allow these two merges to take place.  A large mergability gap represents a barrier to being able to
+    consolidate the piece on the board to reduce space consumption.  We know that every round results in one tile being
+    added to the board, so on average the strategy should result in nett negative or stable growth.
+    checkerboard patterns reduce the probability of being able to maintain net negative growth.
+- How are the existing utility measures working as a way to measure negative growth potential?
+- What other things increase or reduce the negative growth trend?
+    - board positions that do not require opening an edge up against which large value tiles are clustered
+- How do you detect a cliff:
+    64  32  16  0           0   64  32  16
+    64  32  16  0    =>     2   64  32  16
+    64  32  16  0           0   64  32  16
+    64  32  16  0           0   64  32  16
+    or, as represented as logs:
+    6   5   4   0           0   6   5   4
+    6   5   4   0    =>     1   6   5   4
+    6   5   4   0           0   6   5   4
+    6   5   4   0           0   6   5   4
+- What makes the initial board better than the latter?
+    - the function of the row follows a smooth downward slope, perhaps it can be compared to an ideal function, that
+        can be matched to the actual line?  In a way, the values don't matter, they just bear a certain relation to
+        each other, and more importantly if the ideal function was matched to the real function, there would be less
+        deviance.  A line that has peaks or troughs in it, would be a poor match.  Perhaps curve matching would be both
+        possible and fast?
+
+
+## IDEAS
+- Perhaps the key insight is to think of board positions solely in terms of their effect on the ability to maintain
+    net negative growth?
+- perhaps measure the average size across all possible board positions
+    - i.e. a board derives its probability from the board sizes of its children, recursively.
+        the deeper you look the better an idea you get of the impact a move has on subsequent boards
+- Another way to gauge the consistency of a board is to see whether related tiles are connected?
+    ?->  one way to check it would be to implement a prairie fire algorithm.  How fragmented the graph is, gives an
+        indication of your chance of merging tiles, and thus of maintaining negative growth.
+    ?-> In a non-fragmented board, you should be able to detect monotonicity and other characteristics by controlling
+        the numbers used to represent contiguous groups.
+        ?-> zeros should be treated equally with the others.
+        ?-> the bigger the contiguous group the higher the score dividend should be.
+- judge whether tiles are on the same rank or file.
+- alter the fast grid to work with the log_2 value of a tile, to support faster analysis.
+- enforce rule that all utility functions express their anaoysis as a probability, related to how they
+    affect the chances of maintaining net negative growth
+
