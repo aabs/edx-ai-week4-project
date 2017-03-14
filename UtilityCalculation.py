@@ -2,7 +2,9 @@ import array
 import math
 
 import FastGrid
+from ConvolutionKernel import ConvolutionKernel
 from Grid_3 import Grid
+from algorithms import prairie_fire, sigmoid
 
 
 class UtilityCalculator:
@@ -158,7 +160,8 @@ This needs to be no more than 0.09 s i.e. a 100 fold improvement is required to 
                     totals[3] += current_value - next_value
                 current = neighbour
                 neighbour += 1
-        return max(totals[0], totals[1]) + max(totals[2], totals[3])
+        result = max(totals[0], totals[1]) + max(totals[2], totals[3])
+        return sigmoid(result)
 
     def compute_utility_original(self, grid: FastGrid):
         def not_zero(g: Grid, x, y):
@@ -263,7 +266,7 @@ class Kernel2(UtilityCalculator):
                 scores[5] += grid[r, c] * fn(r, 3 - c)
                 scores[6] += grid[r, c] * fn(3 - c, 3 - r)
                 scores[7] += grid[r, c] * fn(3 - r, c)
-        return max(scores)
+        return sigmoid(max(scores))
 
 
 class MisplacedMaxTilePenalty(UtilityCalculator):
@@ -274,5 +277,123 @@ class MisplacedMaxTilePenalty(UtilityCalculator):
 
 class FastSnakeCalculator(UtilityCalculator):
     def compute_utility(self, g: FastGrid) -> float:
-        b = g.board[0:4] + array.array('i', reversed(g.board[4:8])) + g.board[8:12] + array.array('i', reversed(g.board[12:16]))
-        return sum(x/10**n for n, x in enumerate(b))
+        b = g.board[0:4] + array.array('i', reversed(g.board[4:8])) + g.board[8:12] + array.array('i', reversed(
+            g.board[12:16]))
+        result = sum(x / 10 ** n for n, x in enumerate(b))
+        return sigmoid(result)
+
+
+class ClusterAnalysisCalculator(UtilityCalculator):
+    def __init__(self):
+        self.rewards_for_top_score = {
+            0: 0,
+            2: 0,
+            4: 0,
+            8: 0,
+            16: 0,
+            32: 0,
+            64: 0,
+            128: 0,
+            256: 10,
+            512: 20,
+            1024: 50,
+            2048: 100,  # job done.. .  .
+            4096: 200,
+            8192: 400,
+            16384: 800,
+            32768: 800,
+            65536: 800
+        }
+        self.rewards_for_cluster_sizes = {
+            0: 0,
+            2: 1,
+            4: 2,
+            8: 3,
+            16: 4,
+            32: 5,
+            64: 6,
+            128: 7,
+            256: 8,
+            512: 9,
+            1024: 10,
+            2048: 11,
+            4096: 12,
+            8192: 13,
+            16384: 14,
+            32768: 15,
+            65536: 16
+        }
+        self.penalties_for_cluster_fragments = {
+            0: 0,
+            2: 15,
+            4: 14,
+            8: 13,
+            16: 12,
+            32: 11,
+            64: 10,
+            128: 9,
+            256: 8,
+            512: 7,
+            1024: 6,
+            2048: 5,
+            4096: 4,
+            8192: 3,
+            16384: 2,
+            32768: 1,
+            65536: 0
+        }
+        self.rewards_for_cluster_dimensions_x = {
+            0: 0,
+            1: 0,
+            2: 0,
+            3: 0,
+            4: 0
+        }
+        self.rewards_for_cluster_dimensions_y = {
+            0: 0,
+            1: 0,
+            2: 0,
+            3: 0,
+            4: 0
+        }
+
+    def compute_utility(self, grid: FastGrid) -> float:
+        r = prairie_fire(grid)
+        rewards = 0.0
+        penalties = 0.0
+        top_score_reward = 0
+        for tile in r:
+            clusters = r[tile]
+            num_clusters = len(clusters)
+            if num_clusters > 0:
+                top_score_reward = self.rewards_for_top_score[tile]
+                max_cluster_size = max(c['count'] for c in clusters)
+                penalties += 3.0**num_clusters
+                rewards += 1.5**max_cluster_size
+            #
+            #
+            # for cluster in clusters:
+            #     # {'count': 0, 'minx': 1000, 'maxx': -1, 'miny': 5, 'maxy': -1, 'adjacent_tiles': []}
+            #
+            #
+            #
+            #     rewards += (self.rewards_for_cluster_sizes[tile] * cluster['count']) #if cluster['count'] >= 2 else 0
+            #     rewards += self.rewards_for_cluster_dimensions_x[cluster['maxx'] - cluster['minx']]
+            #     rewards += self.rewards_for_cluster_dimensions_y[cluster['maxy'] - cluster['miny']]
+            # special_reward_for_zeros = sum(x['count'] for x in r[0])
+            # rewards += 10 * special_reward_for_zeros
+            rewards += top_score_reward
+        return sigmoid(rewards - penalties)
+
+
+class ConvolutionKernelCalculator(UtilityCalculator):
+    def __init__(self):
+        self.hole_detector_kernel = ConvolutionKernel([[-1, -1, -1],
+                                                       [-1, +8, -1],
+                                                       [-1, -1, -1]])
+
+
+    def compute_utility(self, grid: FastGrid) -> float:
+        new_array = self.hole_detector_kernel.compute(grid)
+        result = sigmoid(sum(new_array))
+        return result

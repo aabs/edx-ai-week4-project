@@ -9,6 +9,8 @@ log = logging.getLogger('app' + __name__)
 class CompositeUtilityCalculator(UtilityCalculator):
     def __init__(self):
         self.calculators = [
+            (1.0, ClusterAnalysisCalculator()),
+            (0.0, ConvolutionKernelCalculator()),
             (0.0, FreeSpaceCalculator()),
             (0.0, RoughnessCalculator()),
             (0.0, MonotonicityCalculator()),
@@ -16,8 +18,8 @@ class CompositeUtilityCalculator(UtilityCalculator):
             (0.0, Kernel2()),
             (0.0, KernelCalculator()),
             (0.0, ClusteringCalculator()),
-            (1.0, MisplacedMaxTilePenalty()),
-            (1.0, FastSnakeCalculator())
+            (0.0, MisplacedMaxTilePenalty()),
+            (0.0, FastSnakeCalculator())
         ]
         log.debug("Composite Calculator.")
 

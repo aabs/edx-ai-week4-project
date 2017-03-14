@@ -3,6 +3,8 @@ from collections import namedtuple
 
 import logging
 
+import math
+
 
 class SolutionContext:
     def __init__(self
@@ -147,7 +149,6 @@ def prairie_fire(g):
     B = g.clone()
     result = dict()
     tiles = [2 ** l if l > 0 else 0 for l in range(0, 17)]
-    tiles.insert(0, 0)  # add zero at the beginning, so we can also see how much space we have
     for t in tiles:
         result[t] = []
     for t in tiles:
@@ -172,3 +173,8 @@ def prairie_fire(g):
             if stats['count'] > 0:
                 result[t].append(stats)
     return result
+
+
+
+def sigmoid(x):
+    return 1 / (1 + math.exp(-x))

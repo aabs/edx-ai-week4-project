@@ -59,6 +59,36 @@ merging the cluster in a certain direction was worthwhile
 
 Does the way the results are used change through the course of the game?
 
+How should the chart of rewards and penalties be constructed?  Currently,
+the rewards are multiplied by the number of tiles in each cluster,
+whereas the penalties are proportional to the number of fragments.  Even
+a small cluster of large tiles can outweigh the cost of being fragmented.
+?-> The rewards and penalties should be balanced out somehow, so that
+the effect of fragmentation can be felt, even for large tile values.
+
+Q: How can this be done?
+Q: does it really matter what kind of tile is fragmented?  the fact that
+    it is fragmented at all is what matters.
+Q: Similarly, isn't a cluster of tiles important, regardless of the
+    kind of tile it contains.
+
+Q: So, should the unit of penalty and reward be the same?
+A: The use of multiplication factors is complicated in the case of
+    cluster rewards by multiplying by the tile value itself.
+    With the exception of tile 2, the chances are that the tile value
+    will always outweigh the number of clusters.
+!:  Use a power law to penalise and reward the fragments:
+    - `m**f`,
+        where f is the number of fragments,
+        and m is the penalty factor
+    - `n**c`,
+        where c is the size of the largest cluster
+        and n is the reward factor
+    - `n < m`
+        if `n` is less than `m`, then the more fragmented the board
+        gets, the more the penalties build up.  Also, the more fragments
+        there are, the smaller the fragments are likely to be
+
 # Prairie Fire Algorithm
 
 Objectives:

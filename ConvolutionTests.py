@@ -59,7 +59,7 @@ class ConvolutionTests(ABTestingBase):
     def test_can_highlight_checkerboard(self):
         fg = self.create_fastgrid_from([
             2,  32, 32, 32,
-            32, 32, 32, 32,
+            8,  16, 32, 32,
             32, 32, 32, 32,
             32, 32, 32, 32
         ])

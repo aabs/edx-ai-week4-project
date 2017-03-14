@@ -8,8 +8,8 @@ from CompositeCalculation import CompositeUtilityCalculator
 from FastGrid import FastGrid
 from algorithms import *
 
-deadline_offset = 0.2  # mandated solution timeout for exercise is .1 secs
-max_depth_allowed = 8  # how deep to search for solutions
+deadline_offset = 0.1  # mandated solution timeout for exercise is .1 secs
+max_depth_allowed = 6  # how deep to search for solutions
 
 # some constants for initialising alpha and beta values in minimax
 plus_infinity = float(sys.maxsize)
